@@ -195,9 +195,9 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 			InterfaceType:       network.EthernetInterface,
 			MACAddress:          nic.MACAddress,
 			MTU:                 nic.EffectveMTU,
-			VLANTag:             nic.VLAN.VID,
+			VLANTag:             nic.VLAN.VID_,
 			ProviderId:          network.Id(strconv.Itoa(nic.ID)),
-			ProviderVLANId:      network.Id(strconv.Itoa(nic.VLAN.ID)),
+			ProviderVLANId:      network.Id(strconv.Itoa(nic.VLAN.ID_)),
 			Disabled:            !nic.Enabled,
 			NoAutoStart:         !nic.Enabled,
 			ParentInterfaceName: nameToParentName[nic.Name],
@@ -210,7 +210,7 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 		}
 
 		for _, link := range nic.Links {
-			switch link.Mode {
+			switch link.Mode_ {
 			case modeUnknown:
 				nicInfo.ConfigType = network.ConfigUnknown
 			case modeDHCP:
@@ -221,24 +221,24 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 				nicInfo.ConfigType = network.ConfigManual
 			}
 
-			if link.IPAddress == "" {
+			if link.IPAddress_ == "" {
 				logger.Debugf("device %q interface %q has no address", deviceID, nic.Name)
 				continue
 			}
-			if link.Subnet == nil {
+			if link.Subnet_ == nil {
 				logger.Debugf("device %q interface %q link %d missing subnet", deviceID, nic.Name, link.ID)
 				continue
 			}
 
-			nicInfo.CIDR = link.Subnet.CIDR
-			nicInfo.Address = network.NewAddressOnSpace(link.Subnet.Space, link.IPAddress)
-			nicInfo.ProviderSubnetId = network.Id(strconv.Itoa(link.Subnet.ID))
-			nicInfo.ProviderAddressId = network.Id(strconv.Itoa(link.ID))
-			if link.Subnet.GatewayIP != "" {
-				nicInfo.GatewayAddress = network.NewAddressOnSpace(link.Subnet.Space, link.Subnet.GatewayIP)
+			nicInfo.CIDR = link.Subnet_.CIDR_
+			nicInfo.Address = network.NewAddressOnSpace(link.Subnet_.Space_, link.IPAddress_)
+			nicInfo.ProviderSubnetId = network.Id(strconv.Itoa(link.Subnet_.ID_))
+			nicInfo.ProviderAddressId = network.Id(strconv.Itoa(link.ID_))
+			if link.Subnet_.GatewayIP != "" {
+				nicInfo.GatewayAddress = network.NewAddressOnSpace(link.Subnet_.Space_, link.Subnet_.GatewayIP)
 			}
-			if len(link.Subnet.DNSServers) > 0 {
-				nicInfo.DNSServers = network.NewAddressesOnSpace(link.Subnet.Space, link.Subnet.DNSServers...)
+			if len(link.Subnet_.DNSServers) > 0 {
+				nicInfo.DNSServers = network.NewAddressesOnSpace(link.Subnet_.Space_, link.Subnet_.DNSServers...)
 			}
 
 			interfaceInfo = append(interfaceInfo, nicInfo)

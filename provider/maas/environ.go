@@ -2267,7 +2267,7 @@ func (env *maasEnviron) AllocateContainerAddresses(hostInstanceID instance.Id, p
 		return nil, errors.Annotate(err, "cannot parse subnets JSON")
 	}
 	for _, subnet := range subnets {
-		subnetCIDRToVLANID[subnet.CIDR] = strconv.Itoa(subnet.VLAN.ID)
+		subnetCIDRToVLANID[subnet.CIDR_] = strconv.Itoa(subnet.VLAN_.ID_)
 	}
 
 	var primaryNICInfo network.InterfaceInfo
