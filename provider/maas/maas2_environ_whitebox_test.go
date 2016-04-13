@@ -16,40 +16,17 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type maas2EnvironSuite struct {
-	baseProviderSuite
+	maas2Suite
 }
 
 var _ = gc.Suite(&maas2EnvironSuite{})
-
-func makeEnviron(c *gc.C) *maasEnviron {
-	testAttrs := coretesting.Attrs{}
-	for k, v := range maasEnvAttrs {
-		testAttrs[k] = v
-	}
-	testAttrs["maas-server"] = "http://any-old-junk.invalid/"
-	testAttrs["agent-version"] = version.Current.String()
-	attrs := coretesting.FakeConfig().Merge(testAttrs)
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := NewEnviron(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
-	return env
-}
-
-func (suite *maas2EnvironSuite) SetUpTest(c *gc.C) {
-	suite.baseProviderSuite.SetUpTest(c)
-	suite.SetFeatureFlags(feature.MAAS2)
-}
 
 func (suite *maas2EnvironSuite) getEnvWithServer(c *gc.C) (*maasEnviron, error) {
 	testServer := gomaasapi.NewSimpleServer()
@@ -81,32 +58,23 @@ func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestSupportedArchitectures(c *gc.C) {
-	controller := fakeController{
+	controller := &fakeController{
 		bootResources: []gomaasapi.BootResource{
 			&fakeBootResource{name: "wily", architecture: "amd64/blah"},
 			&fakeBootResource{name: "wily", architecture: "amd64/something"},
 			&fakeBootResource{name: "xenial", architecture: "arm/somethingelse"},
 		},
 	}
-	suite.injectController(&controller)
-	env := makeEnviron(c)
+	env := suite.makeEnviron(c, controller)
 	result, err := env.SupportedArchitectures()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []string{"amd64", "arm"})
 }
 
 func (suite *maas2EnvironSuite) TestSupportedArchitecturesError(c *gc.C) {
-	suite.injectController(&fakeController{bootResourcesError: errors.New("Something terrible!")})
-	env := makeEnviron(c)
+	env := suite.makeEnviron(c, &fakeController{bootResourcesError: errors.New("Something terrible!")})
 	_, err := env.SupportedArchitectures()
 	c.Assert(err, gc.ErrorMatches, "Something terrible!")
-}
-
-func (suite *maas2EnvironSuite) injectController(controller gomaasapi.Controller) {
-	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
-		return controller, nil
-	}
-	suite.PatchValue(&GetMAAS2Controller, mockGetController)
 }
 
 func (suite *maas2EnvironSuite) injectControllerWithSpacesAndCheck(c *gc.C, spaces []gomaasapi.Space, expected gomaasapi.AllocateMachineArgs) *maasEnviron {
@@ -125,7 +93,7 @@ func (suite *maas2EnvironSuite) injectControllerWithSpacesAndCheck(c *gc.C, spac
 	}
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
-	env = makeEnviron(c)
+	env = suite.makeEnviron(c, nil)
 	return env
 }
 
@@ -139,11 +107,11 @@ func (suite *maas2EnvironSuite) makeEnvironWithMachines(c *gc.C, expectedSystemI
 	for index, id := range returnSystemIDs {
 		machines[index] = &fakeMachine{systemID: id}
 	}
-	suite.injectController(&fakeController{
+	controller := &fakeController{
 		machines:          machines,
 		machinesArgsCheck: checkArgs,
-	})
-	env = makeEnviron(c)
+	}
+	env = suite.makeEnviron(c, controller)
 	return env
 }
 
@@ -162,8 +130,8 @@ func (suite *maas2EnvironSuite) TestAllInstances(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAllInstancesError(c *gc.C) {
-	suite.injectController(&fakeController{machinesError: errors.New("Something terrible!")})
-	env := makeEnviron(c)
+	controller := &fakeController{machinesError: errors.New("Something terrible!")}
+	env := suite.makeEnviron(c, controller)
 	_, err := env.AllInstances()
 	c.Assert(err, gc.ErrorMatches, "Something terrible!")
 }
@@ -194,13 +162,13 @@ func (suite *maas2EnvironSuite) TestInstancesPartialResult(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAvailabilityZones(c *gc.C) {
-	suite.injectController(&fakeController{
+	controller := &fakeController{
 		zones: []gomaasapi.Zone{
 			&fakeZone{name: "mossack"},
 			&fakeZone{name: "fonseca"},
 		},
-	})
-	env := makeEnviron(c)
+	}
+	env := suite.makeEnviron(c, controller)
 	result, err := env.AvailabilityZones()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedZones := set.NewStrings("mossack", "fonseca")
@@ -212,16 +180,16 @@ func (suite *maas2EnvironSuite) TestAvailabilityZones(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAvailabilityZonesError(c *gc.C) {
-	suite.injectController(&fakeController{
+	controller := &fakeController{
 		zonesError: errors.New("a bad thing"),
-	})
-	env := makeEnviron(c)
+	}
+	env := suite.makeEnviron(c, controller)
 	_, err := env.AvailabilityZones()
 	c.Assert(err, gc.ErrorMatches, "a bad thing")
 }
 
 func (suite *maas2EnvironSuite) TestSpaces(c *gc.C) {
-	suite.injectController(&fakeController{
+	controller := &fakeController{
 		spaces: []gomaasapi.Space{
 			fakeSpace{
 				name: "pepper",
@@ -231,13 +199,13 @@ func (suite *maas2EnvironSuite) TestSpaces(c *gc.C) {
 				name: "freckles",
 				id:   4567,
 				subnets: []gomaasapi.Subnet{
-					fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"},
-					fakeSubnet{id: 98, vlanVid: 67, cidr: "192.168.11.0/24"},
+					fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.10.0/24"},
+					fakeSubnet{id: 98, vlan: fakeVLAN{vid: 67}, cidr: "192.168.11.0/24"},
 				},
 			},
 		},
-	})
-	env := makeEnviron(c)
+	}
+	env := suite.makeEnviron(c, controller)
 	result, err := env.Spaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
@@ -256,10 +224,10 @@ func (suite *maas2EnvironSuite) TestSpaces(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestSpacesError(c *gc.C) {
-	suite.injectController(&fakeController{
+	controller := &fakeController{
 		spacesError: errors.New("Joe Manginiello"),
-	})
-	env := makeEnviron(c)
+	}
+	env := suite.makeEnviron(c, controller)
 	_, err := env.Spaces()
 	c.Assert(err, gc.ErrorMatches, "Joe Manginiello")
 }
@@ -268,7 +236,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceError(c *gc.C) {
 	suite.injectController(&fakeController{
 		allocateMachineError: errors.New("Charles Babbage"),
 	})
-	env := makeEnviron(c)
+	env := suite.makeEnviron(c, nil)
 	_, err := env.StartInstance(environs.StartInstanceParams{})
 	c.Assert(err, gc.ErrorMatches, ".* cannot run instance: Charles Babbage")
 }
@@ -300,7 +268,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 		zones: []gomaasapi.Zone{&fakeZone{name: "foo"}},
 	})
 	suite.setupFakeTools(c)
-	env = makeEnviron(c)
+	env = suite.makeEnviron(c, nil)
 	params := environs.StartInstanceParams{
 		Placement:   "zone=foo",
 		Constraints: constraints.MustParse("mem=8G"),
@@ -323,7 +291,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 		},
 	})
 	suite.setupFakeTools(c)
-	env = makeEnviron(c)
+	env = suite.makeEnviron(c, nil)
 
 	_, err := env.acquireNode2("", "", constraints.Value{}, nil, nil)
 
@@ -349,22 +317,22 @@ func getFourSpaces() []gomaasapi.Space {
 	return []gomaasapi.Space{
 		fakeSpace{
 			name:    "space-1",
-			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"}},
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.10.0/24"}},
 			id:      5,
 		},
 		fakeSpace{
 			name:    "space-2",
-			subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.11.0/24"}},
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlan: fakeVLAN{vid: 66}, cidr: "192.168.11.0/24"}},
 			id:      6,
 		},
 		fakeSpace{
 			name:    "space-3",
-			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.12.0/24"}},
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.12.0/24"}},
 			id:      7,
 		},
 		fakeSpace{
 			name:    "space-4",
-			subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.13.0/24"}},
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlan: fakeVLAN{vid: 66}, cidr: "192.168.13.0/24"}},
 			id:      8,
 		},
 	}
@@ -448,7 +416,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeStorage(c *gc.C) {
 		getStorage = func() []gomaasapi.StorageSpec {
 			return test.expected
 		}
-		env = makeEnviron(c)
+		env = suite.makeEnviron(c, nil)
 		_, err := env.acquireNode2("", "", constraints.Value{}, nil, test.volumes)
 		c.Check(err, jc.ErrorIsNil)
 	}
@@ -552,7 +520,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedError: `duplicated interface binding "dup-name"`,
 	}} {
 		c.Logf("test #%d: interfaces=%v", i, test.interfaces)
-		env = makeEnviron(c)
+		env = suite.makeEnviron(c, nil)
 		getNegatives = func() []string {
 			return test.expectedNegatives
 		}
@@ -573,12 +541,12 @@ func getTwoSpaces() []gomaasapi.Space {
 	return []gomaasapi.Space{
 		fakeSpace{
 			name:    "foo",
-			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"}},
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.10.0/24"}},
 			id:      2,
 		},
 		fakeSpace{
 			name:    "bar",
-			subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.11.0/24"}},
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlan: fakeVLAN{vid: 66}, cidr: "192.168.11.0/24"}},
 			id:      3,
 		},
 	}
@@ -612,7 +580,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
 
 func (suite *maas2EnvironSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {
 	suite.injectController(&fakeController{})
-	env := makeEnviron(c)
+	env := suite.makeEnviron(c, nil)
 	cons := constraints.Value{
 		Spaces: stringslicep("baz"),
 	}
