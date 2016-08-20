@@ -201,6 +201,7 @@ func (cs *ConnectSuite) TestVersionCheck(c *gc.C) {
 	c.Assert(isSupportedLxdVersion("2.0.0.rc4"), jc.IsFalse)
 	c.Assert(isSupportedLxdVersion("0.19"), jc.IsFalse)
 	c.Assert(isSupportedLxdVersion("2.0.1"), jc.IsTrue)
+	c.Assert(isSupportedLxdVersion("2.1"), jc.IsTrue)
 }
 
 var testerr = errors.Errorf("boo!")

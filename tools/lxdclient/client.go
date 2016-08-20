@@ -153,8 +153,8 @@ func isSupportedLxdVersion(version string) bool {
 	var err error
 
 	versionParts := strings.Split(version, ".")
-	if len(versionParts) < 3 {
-		return false
+	for len(versionParts) < 3 {
+		versionParts = append(versionParts, "0")
 	}
 
 	major, err = strconv.Atoi(versionParts[0])
