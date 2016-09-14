@@ -134,6 +134,8 @@ func (w *unixConfigure) ConfigureBasic() error {
 	// of synchronous bootstrap.
 	noncefile := path.Join(w.icfg.DataDir, NonceFile)
 	w.conf.AddRunTextFile(noncefile, w.icfg.MachineNonce, 0644)
+	w.conf.SetAttr("manage_etc_hosts", true)
+
 	return nil
 }
 

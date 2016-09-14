@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/tools/lxdclient"
+	"os"
 )
 
 func isController(icfg *instancecfg.InstanceConfig) bool {
@@ -254,6 +255,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 func getMetadata(cloudcfg cloudinit.CloudConfig, args environs.StartInstanceParams) (map[string]string, error) {
 	renderer := lxdRenderer{}
 	uncompressed, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, renderer)
+	os.Stdout.Write(uncompressed)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
