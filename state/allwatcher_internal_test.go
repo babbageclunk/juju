@@ -673,11 +673,11 @@ func (s *allWatcherStateSuite) TestSettings(c *gc.C) {
 	all.Update(&multiwatcher.ApplicationInfo{
 		ModelUUID: s.state.ModelUUID(),
 		Name:      "dummy-application",
-		CharmURL:  "local:quantal/quantal-dummy-1",
+		CharmURL:  "local:quantal-dummy/quantal/1",
 	})
 	err := b.Changed(all, watcher.Change{
 		C:  "settings",
-		Id: s.state.docID("a#dummy-application#local:quantal/quantal-dummy-1"),
+		Id: s.state.docID("a#dummy-application#local:quantal-dummy/quantal/1"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	entities := all.All()
@@ -686,7 +686,7 @@ func (s *allWatcherStateSuite) TestSettings(c *gc.C) {
 		&multiwatcher.ApplicationInfo{
 			ModelUUID: s.state.ModelUUID(),
 			Name:      "dummy-application",
-			CharmURL:  "local:quantal/quantal-dummy-1",
+			CharmURL:  "local:quantal-dummy/quantal/1",
 			Config:    charm.Settings{"outlook": "foo@bar", "username": "foo"},
 		},
 	})
@@ -695,7 +695,7 @@ func (s *allWatcherStateSuite) TestSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = b.Changed(all, watcher.Change{
 		C:  "settings",
-		Id: s.state.docID("a#dummy-application#local:quantal/quantal-dummy-1"),
+		Id: s.state.docID("a#dummy-application#local:quantal-dummy/quantal/1"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	entities = all.All()
@@ -703,7 +703,7 @@ func (s *allWatcherStateSuite) TestSettings(c *gc.C) {
 		&multiwatcher.ApplicationInfo{
 			ModelUUID: s.state.ModelUUID(),
 			Name:      "dummy-application",
-			CharmURL:  "local:quantal/quantal-dummy-1",
+			CharmURL:  "local:quantal-dummy/quantal/1",
 		},
 	})
 }
@@ -909,7 +909,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		Entity: &multiwatcher.ApplicationInfo{
 			ModelUUID: s.state.ModelUUID(),
 			Name:      "wordpress",
-			CharmURL:  "local:quantal/quantal-wordpress-3",
+			CharmURL:  "local:quantal-wordpress/quantal/3",
 			Life:      "alive",
 			Config:    make(map[string]interface{}),
 			Status: multiwatcher.StatusInfo{
@@ -1578,7 +1578,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		Entity: &multiwatcher.ApplicationInfo{
 			ModelUUID: st1.ModelUUID(),
 			Name:      "wordpress",
-			CharmURL:  "local:quantal/quantal-wordpress-3",
+			CharmURL:  "local:quantal-wordpress/quantal/3",
 			Life:      "alive",
 			Config:    make(map[string]interface{}),
 			Status: multiwatcher.StatusInfo{
@@ -2021,7 +2021,7 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 						ModelUUID: st.ModelUUID(),
 						Name:      "wordpress",
 						Exposed:   true,
-						CharmURL:  "local:quantal/quantal-wordpress-3",
+						CharmURL:  "local:quantal-wordpress/quantal/3",
 						Life:      multiwatcher.Life("alive"),
 						MinUnits:  42,
 						Config:    charm.Settings{},
@@ -2042,7 +2042,7 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 					ModelUUID:   st.ModelUUID(),
 					Name:        "wordpress",
 					Exposed:     true,
-					CharmURL:    "local:quantal/quantal-wordpress-3",
+					CharmURL:    "local:quantal-wordpress/quantal/3",
 					MinUnits:    47,
 					Constraints: constraints.MustParse("mem=99M"),
 					Config:      charm.Settings{"blog-title": "boring"},
@@ -2055,7 +2055,7 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 					&multiwatcher.ApplicationInfo{
 						ModelUUID:   st.ModelUUID(),
 						Name:        "wordpress",
-						CharmURL:    "local:quantal/quantal-wordpress-3",
+						CharmURL:    "local:quantal-wordpress/quantal/3",
 						Life:        multiwatcher.Life("alive"),
 						Constraints: constraints.MustParse("mem=99M"),
 						Config:      charm.Settings{"blog-title": "boring"},
@@ -2072,7 +2072,7 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 					Name:      "wordpress",
 					// Note: CharmURL has a different revision number from
 					// the wordpress revision in the testing repo.
-					CharmURL: "local:quantal/quantal-wordpress-2",
+					CharmURL: "local:quantal-wordpress/quantal/2",
 					Config:   charm.Settings{"foo": "bar"},
 				}},
 				change: watcher.Change{
@@ -2083,7 +2083,7 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 					&multiwatcher.ApplicationInfo{
 						ModelUUID: st.ModelUUID(),
 						Name:      "wordpress",
-						CharmURL:  "local:quantal/quantal-wordpress-3",
+						CharmURL:  "local:quantal-wordpress/quantal/3",
 						Life:      multiwatcher.Life("alive"),
 						Config:    charm.Settings{"blog-title": "boring"},
 					}}}
@@ -2094,7 +2094,7 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				about: "no service in state -> do nothing",
 				change: watcher.Change{
 					C:  "settings",
-					Id: st.docID("a#dummy-application#local:quantal/quantal-dummy-1"),
+					Id: st.docID("a#dummy-application#local:quantal-dummy/quantal/1"),
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -2103,16 +2103,16 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ApplicationInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      "dummy-application",
-					CharmURL:  "local:quantal/quantal-dummy-1",
+					CharmURL:  "local:quantal-dummy/quantal/1",
 				}},
 				change: watcher.Change{
 					C:  "settings",
-					Id: st.docID("a#dummy-application#local:quantal/quantal-dummy-1"),
+					Id: st.docID("a#dummy-application#local:quantal-dummy/quantal/1"),
 				},
 				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ApplicationInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      "dummy-application",
-					CharmURL:  "local:quantal/quantal-dummy-1",
+					CharmURL:  "local:quantal-dummy/quantal/1",
 				}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -2125,17 +2125,17 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ApplicationInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      "dummy-application",
-					CharmURL:  "local:quantal/quantal-dummy-1",
+					CharmURL:  "local:quantal-dummy/quantal/1",
 				}},
 				change: watcher.Change{
 					C:  "settings",
-					Id: st.docID("a#dummy-application#local:quantal/quantal-dummy-1"),
+					Id: st.docID("a#dummy-application#local:quantal-dummy/quantal/1"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ApplicationInfo{
 						ModelUUID: st.ModelUUID(),
 						Name:      "dummy-application",
-						CharmURL:  "local:quantal/quantal-dummy-1",
+						CharmURL:  "local:quantal-dummy/quantal/1",
 						Config:    charm.Settings{"username": "foo", "outlook": "foo@bar"},
 					}}}
 		},
@@ -2150,18 +2150,18 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ApplicationInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      "dummy-application",
-					CharmURL:  "local:quantal/quantal-dummy-1",
+					CharmURL:  "local:quantal-dummy/quantal/1",
 					Config:    charm.Settings{"username": "foo", "outlook": "foo@bar"},
 				}},
 				change: watcher.Change{
 					C:  "settings",
-					Id: st.docID("a#dummy-application#local:quantal/quantal-dummy-1"),
+					Id: st.docID("a#dummy-application#local:quantal-dummy/quantal/1"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ApplicationInfo{
 						ModelUUID: st.ModelUUID(),
 						Name:      "dummy-application",
-						CharmURL:  "local:quantal/quantal-dummy-1",
+						CharmURL:  "local:quantal-dummy/quantal/1",
 						Config:    charm.Settings{"outlook": "foo@bar"},
 					}}}
 		},
@@ -2178,18 +2178,18 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ApplicationInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      "dummy-application",
-					CharmURL:  "local:quantal/quantal-dummy-1",
+					CharmURL:  "local:quantal-dummy/quantal/1",
 					Config:    charm.Settings{"key.dotted": "bar"},
 				}},
 				change: watcher.Change{
 					C:  "settings",
-					Id: st.docID("a#dummy-application#local:quantal/quantal-dummy-1"),
+					Id: st.docID("a#dummy-application#local:quantal-dummy/quantal/1"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ApplicationInfo{
 						ModelUUID: st.ModelUUID(),
 						Name:      "dummy-application",
-						CharmURL:  "local:quantal/quantal-dummy-1",
+						CharmURL:  "local:quantal-dummy/quantal/1",
 						Config:    charm.Settings{"key.dotted": "foo"},
 					}}}
 		},
@@ -2202,18 +2202,18 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ApplicationInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      "dummy-application",
-					CharmURL:  "local:quantal/quantal-dummy-2", // Note different revno.
+					CharmURL:  "local:quantal-dummy/quantal/2", // Note different revno.
 					Config:    charm.Settings{"username": "bar"},
 				}},
 				change: watcher.Change{
 					C:  "settings",
-					Id: st.docID("a#dummy-application#local:quantal/quantal-dummy-1"),
+					Id: st.docID("a#dummy-application#local:quantal-dummy/quantal/1"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ApplicationInfo{
 						ModelUUID: st.ModelUUID(),
 						Name:      "dummy-application",
-						CharmURL:  "local:quantal/quantal-dummy-2",
+						CharmURL:  "local:quantal-dummy/quantal/2",
 						Config:    charm.Settings{"username": "bar"},
 					}}}
 		},

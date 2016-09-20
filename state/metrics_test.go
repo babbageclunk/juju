@@ -71,7 +71,7 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatch.Unit(), gc.Equals, "metered/0")
 	c.Assert(metricBatch.ModelUUID(), gc.Equals, modelUUID)
-	c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered")
+	c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:metered/quantal")
 	c.Assert(metricBatch.Sent(), jc.IsFalse)
 	c.Assert(metricBatch.Created(), gc.Equals, now)
 	c.Assert(metricBatch.Metrics(), gc.HasLen, 1)
@@ -84,7 +84,7 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	saved, err := s.State.MetricBatch(metricBatch.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.Unit(), gc.Equals, "metered/0")
-	c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered")
+	c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:metered/quantal")
 	c.Assert(saved.Sent(), jc.IsFalse)
 	c.Assert(saved.Metrics(), gc.HasLen, 1)
 	metric = saved.Metrics()[0]
@@ -261,7 +261,7 @@ func (s *MetricSuite) TestAllMetricBatches(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 	c.Assert(metricBatches[0].Unit(), gc.Equals, "metered/0")
-	c.Assert(metricBatches[0].CharmURL(), gc.Equals, "cs:quantal/metered")
+	c.Assert(metricBatches[0].CharmURL(), gc.Equals, "cs:metered/quantal")
 	c.Assert(metricBatches[0].Sent(), jc.IsFalse)
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
 }
@@ -270,7 +270,7 @@ func (s *MetricSuite) TestAllMetricBatchesCustomCharmURLAndUUID(c *gc.C) {
 	now := state.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	uuid := utils.MustNewUUID().String()
-	charmUrl := "cs:quantal/metered"
+	charmUrl := "cs:metered/quantal"
 	_, err := s.State.AddMetrics(
 		state.BatchParam{
 			UUID:     uuid,
@@ -529,7 +529,7 @@ func (s *MetricSuite) TestAddBuiltInMetric(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(metricBatch.Unit(), gc.Equals, "metered/0")
 			c.Assert(metricBatch.ModelUUID(), gc.Equals, modelUUID)
-			c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered")
+			c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:metered/quantal")
 			c.Assert(metricBatch.Sent(), jc.IsFalse)
 			c.Assert(metricBatch.Created(), gc.Equals, now)
 			c.Assert(metricBatch.Metrics(), gc.HasLen, 1)
@@ -542,7 +542,7 @@ func (s *MetricSuite) TestAddBuiltInMetric(c *gc.C) {
 			saved, err := s.State.MetricBatch(metricBatch.UUID())
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(saved.Unit(), gc.Equals, "metered/0")
-			c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered")
+			c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:metered/quantal")
 			c.Assert(saved.Sent(), jc.IsFalse)
 			c.Assert(saved.Metrics(), gc.HasLen, 1)
 			metric = saved.Metrics()[0]
@@ -645,7 +645,7 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatches(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 	c.Check(metricBatches[0].Unit(), gc.Equals, "metered/0")
-	c.Check(metricBatches[0].CharmURL(), gc.Equals, "local:quantal/metered")
+	c.Check(metricBatches[0].CharmURL(), gc.Equals, "local:metered/quantal")
 	c.Check(metricBatches[0].Sent(), jc.IsFalse)
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
 	c.Check(metricBatches[0].Metrics()[0].Value, gc.Equals, "5")
@@ -654,7 +654,7 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatches(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 	c.Check(metricBatches[0].Unit(), gc.Equals, "metered/1")
-	c.Check(metricBatches[0].CharmURL(), gc.Equals, "local:quantal/metered")
+	c.Check(metricBatches[0].CharmURL(), gc.Equals, "local:metered/quantal")
 	c.Check(metricBatches[0].Sent(), jc.IsFalse)
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
 	c.Check(metricBatches[0].Metrics()[0].Value, gc.Equals, "10")
@@ -692,13 +692,13 @@ func (s *MetricLocalCharmSuite) TestApplicationMetricBatches(c *gc.C) {
 	c.Assert(metricBatches, gc.HasLen, 2)
 
 	c.Check(metricBatches[0].Unit(), gc.Equals, "metered/0")
-	c.Check(metricBatches[0].CharmURL(), gc.Equals, "local:quantal/metered")
+	c.Check(metricBatches[0].CharmURL(), gc.Equals, "local:metered/quantal")
 	c.Check(metricBatches[0].Sent(), jc.IsFalse)
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
 	c.Check(metricBatches[0].Metrics()[0].Value, gc.Equals, "5")
 
 	c.Check(metricBatches[1].Unit(), gc.Equals, "metered/1")
-	c.Check(metricBatches[1].CharmURL(), gc.Equals, "local:quantal/metered")
+	c.Check(metricBatches[1].CharmURL(), gc.Equals, "local:metered/quantal")
 	c.Check(metricBatches[1].Sent(), jc.IsFalse)
 	c.Assert(metricBatches[1].Metrics(), gc.HasLen, 1)
 	c.Check(metricBatches[1].Metrics()[0].Value, gc.Equals, "10")
@@ -756,14 +756,14 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 	c.Assert(metricBatches, gc.HasLen, 2)
 
 	c.Check(metricBatches[0].Unit(), gc.Equals, "metered/0")
-	c.Check(metricBatches[0].CharmURL(), gc.Equals, "local:quantal/metered")
+	c.Check(metricBatches[0].CharmURL(), gc.Equals, "local:metered/quantal")
 	c.Check(metricBatches[0].ModelUUID(), gc.Equals, s.State.ModelUUID())
 	c.Check(metricBatches[0].Sent(), jc.IsFalse)
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
 	c.Check(metricBatches[0].Metrics()[0].Value, gc.Equals, "5")
 
 	c.Check(metricBatches[1].Unit(), gc.Equals, "metered/1")
-	c.Check(metricBatches[1].CharmURL(), gc.Equals, "local:quantal/metered")
+	c.Check(metricBatches[1].CharmURL(), gc.Equals, "local:metered/quantal")
 	c.Check(metricBatches[1].ModelUUID(), gc.Equals, s.State.ModelUUID())
 	c.Check(metricBatches[1].Sent(), jc.IsFalse)
 	c.Assert(metricBatches[1].Metrics(), gc.HasLen, 1)

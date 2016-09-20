@@ -122,9 +122,9 @@ func (s *CharmSuite) TestRemoveWithoutDestroy(c *gc.C) {
 }
 
 func (s *CharmSuite) TestCharmNotFound(c *gc.C) {
-	curl := charm.MustParseURL("local:anotherseries/dummy-1")
+	curl := charm.MustParseURL("local:saucy/dummy-1")
 	_, err := s.State.Charm(curl)
-	c.Assert(err, gc.ErrorMatches, `charm "local:anotherseries/dummy-1" not found`)
+	c.Assert(err, gc.ErrorMatches, `charm "local:dummy/saucy/1" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -645,7 +645,7 @@ func (s *CharmSuite) TestAllCharms(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charms, gc.HasLen, 3)
 
-	c.Assert(charms[0].URL().String(), gc.Equals, "local:quantal/quantal-dummy-1")
+	c.Assert(charms[0].URL().String(), gc.Equals, "local:quantal-dummy/quantal/1")
 	c.Assert(charms[1], gc.DeepEquals, sch)
 	c.Assert(charms[2].URL(), gc.DeepEquals, curl2)
 }
@@ -696,8 +696,8 @@ func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 		ch := s.AddTestingCharm(c, name)
 		assertCustomCharm(c, ch, "quantal", meta, config, metrics, revision)
 
-		ch = s.AddSeriesCharm(c, name, "anotherseries")
-		assertCustomCharm(c, ch, "anotherseries", meta, config, metrics, revision)
+		ch = s.AddSeriesCharm(c, name, "saucy")
+		assertCustomCharm(c, ch, "saucy", meta, config, metrics, revision)
 	})
 }
 

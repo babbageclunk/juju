@@ -134,7 +134,7 @@ func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeriesForce(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err = svc.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL().String(), gc.Equals, "cs:multi-series2-8")
+	c.Assert(ch.URL().String(), gc.Equals, "cs:multi-series2/8")
 }
 
 func (s *ServiceSuite) TestClientServiceSetCharmWrongOS(c *gc.C) {
@@ -156,7 +156,7 @@ func (s *ServiceSuite) TestSetCharmPreconditions(c *gc.C) {
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, "cannot change a service's subordinacy")
 
-	othermysql := s.AddSeriesCharm(c, "mysql", "otherseries")
+	othermysql := s.AddSeriesCharm(c, "mysql", "saucy")
 	cfg2 := state.SetCharmConfig{Charm: othermysql}
 	err = s.mysql.SetCharm(cfg2)
 	c.Assert(err, gc.ErrorMatches, "cannot change a service's series")
@@ -342,7 +342,7 @@ var setCharmEndpointsTests = []struct {
 }, {
 	summary: "different peer",
 	meta:    metaDifferentPeer,
-	err:     `cannot upgrade application "fakemysql" to charm "local:quantal/quantal-mysql-5": would break relation "fakemysql:cluster"`,
+	err:     `cannot upgrade application "fakemysql" to charm "local:quantal-mysql/quantal/5": would break relation "fakemysql:cluster"`,
 }, {
 	summary: "same relations ok",
 	meta:    metaBase,
@@ -401,9 +401,9 @@ func (s *ServiceSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 	baseCharm := s.AddMetaCharm(c, "mysql", metaBase, revno)
 	cfg = state.SetCharmConfig{Charm: baseCharm}
 	err = providerSvc.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myprovider" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myprovider" to charm "local:quantal-mysql/quantal/4": would break relation "myrequirer:kludge myprovider:kludge"`)
 	err = requirerSvc.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myrequirer" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myrequirer" to charm "local:quantal-mysql/quantal/4": would break relation "myrequirer:kludge myprovider:kludge"`)
 }
 
 var stringConfig = `

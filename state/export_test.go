@@ -181,18 +181,17 @@ func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, 
 }
 
 func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
-	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
-	url := "local:" + series + "/" + ident
+	ident := fmt.Sprintf("%s-%s/%s/%d", series, ch.Meta().Name, series, ch.Revision())
 	if series == "" {
-		ident = fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
-		url = "local:" + ident
+		ident = fmt.Sprintf("%s/%d", ch.Meta().Name, ch.Revision())
 	}
+	url := "local:" + ident
 	curl := charm.MustParseURL(url)
 	info := CharmInfo{
 		Charm:       ch,
 		ID:          curl,
 		StoragePath: "dummy-path",
-		SHA256:      ident + "-sha256",
+		SHA256:      fmt.Sprintf("%s-%s-%d-sha256", series, ch.Meta().Name, ch.Revision()),
 	}
 	sch, err := st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)

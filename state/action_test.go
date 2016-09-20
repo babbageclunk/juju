@@ -115,7 +115,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 		should:      "fail on actionless charms",
 		name:        "something",
 		whichUnit:   s.actionlessUnit,
-		expectedErr: "no actions defined on charm \"local:quantal/quantal-actionless-1\"",
+		expectedErr: "no actions defined on charm \"local:quantal-actionless/quantal/1\"",
 	}, {
 		should:      "fail on action not defined in schema",
 		whichUnit:   s.unit,

@@ -594,8 +594,8 @@ func (s *UnitSuite) TestSetCharmURLFailures(c *gc.C) {
 	err := s.unit.SetCharmURL(nil)
 	c.Assert(err, gc.ErrorMatches, "cannot set nil charm url")
 
-	err = s.unit.SetCharmURL(charm.MustParseURL("cs:missing/one-1"))
-	c.Assert(err, gc.ErrorMatches, `unknown charm url "cs:missing/one-1"`)
+	err = s.unit.SetCharmURL(charm.MustParseURL("cs:saucy/one-1"))
+	c.Assert(err, gc.ErrorMatches, `unknown charm url "cs:one/saucy/1"`)
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
