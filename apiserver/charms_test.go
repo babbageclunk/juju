@@ -400,7 +400,7 @@ func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 	s.assertErrorResponse(
 		c, resp, http.StatusNotFound,
-		`unable to retrieve and save the charm: cannot get charm from state: charm "local:precise/no-such" not found`,
+		`unable to retrieve and save the charm: cannot get charm from state: charm "local:no-such/precise" not found`,
 	)
 }
 

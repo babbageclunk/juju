@@ -84,7 +84,7 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		args, ok := a.(params.ApplicationsDeploy)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Applications, gc.HasLen, 1)
-		c.Assert(args.Applications[0].CharmUrl, gc.Equals, "cs:trusty/a-charm-1")
+		c.Assert(args.Applications[0].CharmUrl, gc.Equals, "cs:a-charm/trusty/1")
 		c.Assert(args.Applications[0].ApplicationName, gc.Equals, "serviceA")
 		c.Assert(args.Applications[0].Series, gc.Equals, "series")
 		c.Assert(args.Applications[0].NumUnits, gc.Equals, 2)
@@ -102,7 +102,7 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 
 	args := application.DeployArgs{
 		CharmID: charmstore.CharmID{
-			URL: charm.MustParseURL("trusty/a-charm-1"),
+			URL: charm.MustParseURL("a-charm/trusty/1"),
 		},
 		ApplicationName:  "serviceA",
 		Series:           "series",
@@ -146,7 +146,7 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 		args, ok := a.(params.ApplicationSetCharm)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.ApplicationName, gc.Equals, "application")
-		c.Assert(args.CharmUrl, gc.Equals, "cs:trusty/application-1")
+		c.Assert(args.CharmUrl, gc.Equals, "cs:application/trusty/1")
 		c.Assert(args.ForceSeries, gc.Equals, true)
 		c.Assert(args.ForceUnits, gc.Equals, true)
 		return nil
@@ -154,7 +154,7 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 	cfg := application.SetCharmConfig{
 		ApplicationName: "application",
 		CharmID: charmstore.CharmID{
-			URL: charm.MustParseURL("trusty/application-1"),
+			URL: charm.MustParseURL("application/trusty/1"),
 		},
 		ForceSeries: true,
 		ForceUnits:  true,

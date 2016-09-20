@@ -397,5 +397,5 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisions(c *gc.C) {
 	status, _ = client.Status(nil)
 	serviceStatus, ok = status.Applications["mysql"]
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(serviceStatus.CanUpgradeTo, gc.Equals, "cs:quantal/mysql-23")
+	c.Assert(serviceStatus.CanUpgradeTo, gc.Equals, "cs:mysql/quantal/23")
 }

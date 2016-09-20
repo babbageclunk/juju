@@ -1140,27 +1140,27 @@ var resolveCharmTests = []struct {
 }{{
 	about:    "wordpress resolved",
 	url:      "cs:wordpress",
-	resolved: "cs:trusty/wordpress",
+	resolved: "cs:wordpress/trusty",
 }, {
 	about:    "mysql resolved",
 	url:      "cs:mysql",
-	resolved: "cs:precise/mysql",
+	resolved: "cs:mysql/precise",
 }, {
 	about:    "riak resolved",
 	url:      "cs:riak",
-	resolved: "cs:trusty/riak",
+	resolved: "cs:riak/trusty",
 }, {
 	about:    "fully qualified char reference",
 	url:      "cs:utopic/riak-5",
-	resolved: "cs:utopic/riak-5",
+	resolved: "cs:riak/utopic/5",
 }, {
 	about:    "charm with series and no revision",
 	url:      "cs:precise/wordpress",
-	resolved: "cs:precise/wordpress",
+	resolved: "cs:wordpress/precise",
 }, {
 	about:      "fully qualified reference not found",
 	url:        "cs:utopic/riak-42",
-	resolveErr: `cannot resolve URL "cs:utopic/riak-42": charm not found`,
+	resolveErr: `cannot resolve URL "cs:riak/utopic/42": charm not found`,
 }, {
 	about:      "reference not found",
 	url:        "cs:no-such",

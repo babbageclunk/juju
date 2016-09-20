@@ -162,7 +162,7 @@ func (s *serviceSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := svc.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL().String(), gc.Equals, "local:quantal/dummy-1")
+	c.Assert(ch.URL().String(), gc.Equals, "local:dummy/quantal/1")
 
 	// Empty string will be returned as nil.
 	options := map[string]string{
@@ -421,7 +421,7 @@ func (s *serviceSuite) TestAddCharm(c *gc.C) {
 	client := s.APIState.Client()
 	// First test the sanity checks.
 	err := client.AddCharm(&charm.URL{Name: "nonsense"}, csparams.StableChannel)
-	c.Assert(err, gc.ErrorMatches, `cannot parse charm or bundle URL: ":nonsense-0"`)
+	c.Assert(err, gc.ErrorMatches, `cannot parse charm or bundle URL: ":nonsense/0"`)
 	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"), csparams.StableChannel)
 	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
 	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"), csparams.StableChannel)
@@ -472,7 +472,7 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	// Try to add a charm to the environment without authorization.
 	s.DischargeUser = ""
 	err = s.APIState.Client().AddCharm(curl, csparams.StableChannel)
-	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: discharge denied \(unauthorized access\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:restricted/wordpress/precise/3": cannot get archive: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: discharge denied \(unauthorized access\)`)
 
 	tryAs := func(user string) error {
 		client := csclient.New(csclient.Params{
@@ -490,7 +490,7 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	}
 	// Try again with authorization for the wrong user.
 	err = tryAs("joe")
-	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: unauthorized: access denied for user "joe"`)
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:restricted/wordpress/precise/3": cannot get archive: unauthorized: access denied for user "joe"`)
 
 	// Try again with the correct authorization this time.
 	err = tryAs("bob")
@@ -593,7 +593,7 @@ func (s *serviceSuite) TestServiceGetCharmURL(c *gc.C) {
 	result, err := s.applicationAPI.GetCharmURL(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Result, gc.Equals, "local:quantal/wordpress-3")
+	c.Assert(result.Result, gc.Equals, "local:wordpress/quantal/3")
 }
 
 func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
@@ -665,7 +665,7 @@ func (s *serviceSuite) assertServiceSetCharm(c *gc.C, forceUnits bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	charm, _, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charm.URL().String(), gc.Equals, "cs:~who/precise/wordpress-3")
+	c.Assert(charm.URL().String(), gc.Equals, "cs:who/wordpress/precise/3")
 }
 
 func (s *serviceSuite) assertServiceSetCharmBlocked(c *gc.C, msg string) {
@@ -756,7 +756,7 @@ func (s *serviceSuite) TestServiceAddCharmErrors(c *gc.C) {
 		"wordpress":                   "charm URL must include revision",
 		"cs:wordpress":                "charm URL must include revision",
 		"cs:precise/wordpress":        "charm URL must include revision",
-		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
+		"cs:precise/wordpress-999999": `cannot retrieve "cs:wordpress/precise/999999": charm not found`,
 	} {
 		c.Logf("test %s", url)
 		err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
@@ -842,9 +842,9 @@ func (s *serviceSuite) assertServiceSetCharmSeries(c *gc.C, upgradeCharm, series
 
 	url := upgradeCharm
 	if series != "" {
-		url = series + "/" + upgradeCharm
+		url = upgradeCharm + "/" + series
 	}
-	curl, _ = s.UploadCharmMultiSeries(c, "~who/"+url, upgradeCharm)
+	curl, _ = s.UploadCharmMultiSeries(c, "who/"+url, upgradeCharm)
 	err = application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	})
@@ -860,7 +860,7 @@ func (s *serviceSuite) assertServiceSetCharmSeries(c *gc.C, upgradeCharm, series
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := svc.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL().String(), gc.Equals, "cs:~who/"+url+"-0")
+	c.Assert(ch.URL().String(), gc.Equals, "cs:who/"+url+"/0")
 }
 
 func (s *serviceSuite) TestServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
@@ -1258,7 +1258,7 @@ func (s *serviceSuite) TestServiceUpdateSetCharmNotFound(c *gc.C) {
 		CharmUrl:        "cs:precise/wordpress-999999",
 	}
 	err := s.applicationAPI.Update(args)
-	c.Check(err, gc.ErrorMatches, `charm "cs:precise/wordpress-999999" not found`)
+	c.Check(err, gc.ErrorMatches, `charm "cs:wordpress/precise/999999" not found`)
 }
 
 func (s *serviceSuite) TestServiceUpdateSetMinUnits(c *gc.C) {

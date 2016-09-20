@@ -121,12 +121,12 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(downloader.charms, jc.DeepEquals, []string{
-		"local:trusty/magic",
-		"cs:trusty/postgresql-42",
+		"local:magic/trusty",
+		"cs:postgresql/trusty/42",
 	})
 	c.Assert(uploader.charms, jc.DeepEquals, map[string]string{
-		"local:trusty/magic":      "local:trusty/magic content",
-		"cs:trusty/postgresql-42": "cs:trusty/postgresql-42 content",
+		"local:magic/trusty":      "local:magic/trusty content",
+		"cs:postgresql/trusty/42": "cs:postgresql/trusty/42 content",
 	})
 	c.Assert(downloader.uris, jc.SameContents, []string{
 		"/tools/0",

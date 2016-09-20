@@ -175,13 +175,13 @@ func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
 			serveCharm{},
 			writeFile{"charm", 0644},
 			createUniter{},
-			waitUniterDead{err: `executing operation "install cs:quantal/wordpress-0": open .*` + errNotDir},
+			waitUniterDead{err: `executing operation "install cs:wordpress/quantal/0": open .*` + errNotDir},
 		), ut(
 			"charm cannot be downloaded",
 			createCharm{},
 			// don't serve charm
 			createUniter{},
-			waitUniterDead{err: `preparing operation "install cs:quantal/wordpress-0": failed to download charm .* not found`},
+			waitUniterDead{err: `preparing operation "install cs:wordpress/quantal/0": failed to download charm .* not found`},
 		),
 	})
 }

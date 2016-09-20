@@ -110,6 +110,6 @@ func (b mockBundle) ExpandTo(dir string) error {
 }
 
 func charmURL(revision int) *corecharm.URL {
-	baseURL := corecharm.MustParseURL("cs:s/c")
+	baseURL := corecharm.MustParseURL("cs:saucy/c")
 	return baseURL.WithRevision(revision)
 }

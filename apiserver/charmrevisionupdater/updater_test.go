@@ -96,7 +96,7 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	curl = charm.MustParseURL("cs:quantal/mysql")
 	pending, err := s.State.LatestPlaceholderCharm(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pending.String(), gc.Equals, "cs:quantal/mysql-23")
+	c.Assert(pending.String(), gc.Equals, "cs:mysql/quantal/23")
 
 	// Latest wordpress is already deployed, so no pending charm.
 	curl = charm.MustParseURL("cs:quantal/wordpress")
@@ -146,7 +146,7 @@ func (s *charmVersionSuite) TestWordpressCharmNoReadAccessIsntVisible(c *gc.C) {
 	curl := charm.MustParseURL("cs:quantal/mysql")
 	pending, err := s.State.LatestPlaceholderCharm(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pending.String(), gc.Equals, "cs:quantal/mysql-23")
+	c.Assert(pending.String(), gc.Equals, "cs:mysql/quantal/23")
 
 	// No pending charm for wordpress.
 	curl = charm.MustParseURL("cs:quantal/wordpress")

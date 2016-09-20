@@ -49,7 +49,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 			url:   "local:quantal/dummy-1",
 			expected: params.CharmInfo{
 				Revision: 1,
-				URL:      "local:quantal/dummy-1",
+				URL:      "local:dummy/quantal/1",
 				Config: map[string]params.CharmOption{
 					"skill-level": params.CharmOption{
 						Type:        "int",
@@ -101,7 +101,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 			url:   "local:quantal/wordpress-3",
 			expected: params.CharmInfo{
 				Revision: 3,
-				URL:      "local:quantal/wordpress-3",
+				URL:      "local:wordpress/quantal/3",
 				Config: map[string]params.CharmOption{
 					"blog-title": params.CharmOption{Type: "string", Description: "A descriptive title used for the blog.", Default: "My Title"}},
 				Meta: &params.CharmMeta{
@@ -182,8 +182,8 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 		{
 			about: "unknown charm",
 			charm: "wordpress",
-			url:   "cs:missing/one-1",
-			err:   `charm "cs:missing/one-1" not found`,
+			url:   "cs:missing/one/1",
+			err:   `charm "cs:missing/one/1" not found`,
 		},
 	}
 
@@ -222,7 +222,7 @@ func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
 }
 
 func (s *charmsSuite) TestListCharmsNoFilter(c *gc.C) {
-	s.assertListCharms(c, []string{"dummy"}, []string{}, []string{"local:quantal/dummy-1"})
+	s.assertListCharms(c, []string{"dummy"}, []string{}, []string{"local:dummy/quantal/1"})
 }
 
 func (s *charmsSuite) TestListCharmsWithFilterMatchingNone(c *gc.C) {
@@ -230,7 +230,7 @@ func (s *charmsSuite) TestListCharmsWithFilterMatchingNone(c *gc.C) {
 }
 
 func (s *charmsSuite) TestListCharmsFilteredOnly(c *gc.C) {
-	s.assertListCharms(c, []string{"dummy", "wordpress"}, []string{"dummy"}, []string{"local:quantal/dummy-1"})
+	s.assertListCharms(c, []string{"dummy", "wordpress"}, []string{"dummy"}, []string{"local:dummy/quantal/1"})
 }
 
 func (s *charmsSuite) assertListCharms(c *gc.C, someCharms, args, expected []string) {

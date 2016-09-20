@@ -220,7 +220,7 @@ var scenarioStatus = &params.FullStatus{
 	},
 	Applications: map[string]params.ApplicationStatus{
 		"logging": {
-			Charm:  "local:quantal/logging-1",
+			Charm:  "local:logging/quantal/1",
 			Series: "quantal",
 			Relations: map[string][]string{
 				"logging-directory": {"wordpress"},
@@ -233,7 +233,7 @@ var scenarioStatus = &params.FullStatus{
 			},
 		},
 		"mysql": {
-			Charm:         "local:quantal/mysql-1",
+			Charm:         "local:mysql/quantal/1",
 			Series:        "quantal",
 			Relations:     map[string][]string{},
 			SubordinateTo: []string{},
@@ -245,7 +245,7 @@ var scenarioStatus = &params.FullStatus{
 			},
 		},
 		"wordpress": {
-			Charm:  "local:quantal/wordpress-3",
+			Charm:  "local:wordpress/quantal/3",
 			Series: "quantal",
 			Relations: map[string][]string{
 				"logging-dir": {"logging"},

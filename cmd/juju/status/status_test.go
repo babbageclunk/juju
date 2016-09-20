@@ -310,7 +310,7 @@ var (
 		"exposed": true,
 	})
 	loggingCharm = M{
-		"charm":        "cs:quantal/logging-1",
+		"charm":        "cs:logging/quantal/1",
 		"charm-origin": "jujucharms",
 		"charm-name":   "logging",
 		"charm-rev":    1,
@@ -1417,7 +1417,7 @@ var statusTests = []testCase{
 						},
 					}),
 					"varnish": M{
-						"charm":        "cs:quantal/varnish-1",
+						"charm":        "cs:varnish/quantal/1",
 						"charm-origin": "jujucharms",
 						"charm-name":   "varnish",
 						"charm-rev":    1,
@@ -1523,7 +1523,7 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"riak": M{
-						"charm":        "cs:quantal/riak-7",
+						"charm":        "cs:riak/quantal/7",
 						"charm-origin": "jujucharms",
 						"charm-name":   "riak",
 						"charm-rev":    7,
@@ -2038,7 +2038,7 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"mysql": mysqlCharm(M{
-						"can-upgrade-to": "cs:quantal/mysql-23",
+						"can-upgrade-to": "cs:mysql/quantal/23",
 						"exposed":        true,
 						"application-status": M{
 							"current": "waiting",
@@ -2079,9 +2079,9 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
-		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
+		setUnitCharmURL{"mysql/0", "cs:mysql/quantal/1"},
 		addCharmWithRevision{addCharm{"mysql"}, "local", 1},
-		setServiceCharm{"mysql", "local:quantal/mysql-1"},
+		setServiceCharm{"mysql", "local:mysql/quantal/1"},
 
 		expect{
 			"services and units with correct charm status",
@@ -2093,7 +2093,7 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"mysql": mysqlCharm(M{
-						"charm":        "local:quantal/mysql-1",
+						"charm":        "local:mysql/quantal/1",
 						"charm-origin": "local",
 						"exposed":      true,
 						"application-status": M{
@@ -2111,7 +2111,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"upgrading-from": "cs:quantal/mysql-1",
+								"upgrading-from": "cs:mysql/quantal/1",
 								"public-address": "controller-1.dns",
 							},
 						},
@@ -2134,9 +2134,9 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
-		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
+		setUnitCharmURL{"mysql/0", "cs:mysql/quantal/1"},
 		addCharmWithRevision{addCharm{"mysql"}, "cs", 2},
-		setServiceCharm{"mysql", "cs:quantal/mysql-2"},
+		setServiceCharm{"mysql", "cs:mysql/quantal/2"},
 		addCharmPlaceholder{"mysql", 23},
 
 		expect{
@@ -2149,9 +2149,9 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"mysql": mysqlCharm(M{
-						"charm":          "cs:quantal/mysql-2",
+						"charm":          "cs:mysql/quantal/2",
 						"charm-rev":      2,
-						"can-upgrade-to": "cs:quantal/mysql-23",
+						"can-upgrade-to": "cs:mysql/quantal/23",
 						"exposed":        true,
 						"application-status": M{
 							"current": "active",
@@ -2168,7 +2168,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"upgrading-from": "cs:quantal/mysql-1",
+								"upgrading-from": "cs:mysql/quantal/1",
 								"public-address": "controller-1.dns",
 							},
 						},
@@ -2191,9 +2191,9 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
-		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
+		setUnitCharmURL{"mysql/0", "cs:mysql/quantal/1"},
 		addCharmWithRevision{addCharm{"mysql"}, "local", 1},
-		setServiceCharm{"mysql", "local:quantal/mysql-1"},
+		setServiceCharm{"mysql", "local:mysql/quantal/1"},
 		addCharmPlaceholder{"mysql", 23},
 
 		expect{
@@ -2206,7 +2206,7 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"mysql": mysqlCharm(M{
-						"charm":        "local:quantal/mysql-1",
+						"charm":        "local:mysql/quantal/1",
 						"charm-origin": "local",
 						"exposed":      true,
 						"application-status": M{
@@ -2224,7 +2224,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"upgrading-from": "cs:quantal/mysql-1",
+								"upgrading-from": "cs:mysql/quantal/1",
 								"public-address": "controller-1.dns",
 							},
 						},
@@ -2526,7 +2526,7 @@ var statusTests = []testCase{
 
 func mysqlCharm(extras M) M {
 	charm := M{
-		"charm":        "cs:quantal/mysql-1",
+		"charm":        "cs:mysql/quantal/1",
 		"charm-origin": "jujucharms",
 		"charm-name":   "mysql",
 		"charm-rev":    1,
@@ -2542,7 +2542,7 @@ func mysqlCharm(extras M) M {
 
 func meteredCharm(extras M) M {
 	charm := M{
-		"charm":        "cs:quantal/metered-1",
+		"charm":        "cs:metered/quantal/1",
 		"charm-origin": "jujucharms",
 		"charm-name":   "metered",
 		"charm-rev":    1,
@@ -2558,7 +2558,7 @@ func meteredCharm(extras M) M {
 
 func dummyCharm(extras M) M {
 	charm := M{
-		"charm":        "cs:quantal/dummy-1",
+		"charm":        "cs:dummy/quantal/1",
 		"charm-origin": "jujucharms",
 		"charm-name":   "dummy",
 		"charm-rev":    1,
@@ -2574,7 +2574,7 @@ func dummyCharm(extras M) M {
 
 func wordpressCharm(extras M) M {
 	charm := M{
-		"charm":        "cs:quantal/wordpress-3",
+		"charm":        "cs:wordpress/quantal/3",
 		"charm-origin": "jujucharms",
 		"charm-name":   "wordpress",
 		"charm-rev":    3,
@@ -2743,7 +2743,7 @@ type addCharm struct {
 func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
 	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
-	curl := charm.MustParseURL(fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev))
+	curl := charm.MustParseURL(fmt.Sprintf("%s:%s/quantal/%d", scheme, name, rev))
 	info := state.CharmInfo{
 		Charm:       ch,
 		ID:          curl,

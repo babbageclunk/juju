@@ -91,13 +91,13 @@ func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
 func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+		fmt.Sprintf("local:%s/quantal/%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 	client := s.APIState.Client()
 
 	// Test the sanity checks first.
-	_, err := client.AddLocalCharm(charm.MustParseURL("cs:quantal/wordpress-1"), nil)
-	c.Assert(err, gc.ErrorMatches, `expected charm URL with local: schema, got "cs:quantal/wordpress-1"`)
+	_, err := client.AddLocalCharm(charm.MustParseURL("cs:wordpress/quantal/1"), nil)
+	c.Assert(err, gc.ErrorMatches, `expected charm URL with local: schema, got "cs:wordpress/quantal/1"`)
 
 	// Upload an archive with its original revision.
 	savedURL, err := client.AddLocalCharm(curl, charmArchive)
@@ -120,7 +120,7 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 func (s *clientSuite) TestAddLocalCharmOtherModel(c *gc.C) {
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+		fmt.Sprintf("local:%s/quantal/%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 
 	otherSt, otherAPISt := s.otherModel(c)
@@ -163,7 +163,7 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+		fmt.Sprintf("local:%s/quantal/%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 
 	_, err := client.AddLocalCharm(curl, charmArchive)
@@ -214,7 +214,7 @@ func testMinVer(client *api.Client, t minverTest, c *gc.C) {
 
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+		fmt.Sprintf("local:%s/quantal/%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 	charmArchive.Meta().MinJujuVersion = charmMinVer
 
@@ -271,17 +271,17 @@ func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
 }
 
 func (s *clientSuite) TestOpenCharmMissing(c *gc.C) {
-	curl := charm.MustParseURL("cs:quantal/spam-3")
+	curl := charm.MustParseURL("cs:spam/quantal/3")
 	client := s.APIState.Client()
 
 	_, err := client.OpenCharm(curl)
 
-	c.Check(err, gc.ErrorMatches, `.*unable to retrieve and save the charm: cannot get charm from state: charm "cs:quantal/spam-3" not found`)
+	c.Check(err, gc.ErrorMatches, `.*unable to retrieve and save the charm: cannot get charm from state: charm "cs:spam/quantal/3" not found`)
 }
 
 func addLocalCharm(c *gc.C, client *api.Client, name string) (*charm.URL, *charm.CharmArchive) {
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), name)
-	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()))
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/quantal/%d", charmArchive.Meta().Name, charmArchive.Revision()))
 	_, err := client.AddLocalCharm(curl, charmArchive)
 	c.Assert(err, jc.ErrorIsNil)
 	return curl, charmArchive
