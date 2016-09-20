@@ -71,11 +71,11 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
+		"IsMetered", []interface{}{"cs:metered/quantal/1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:       "model uuid",
-			CharmURL:        "cs:quantal/metered-1",
+			CharmURL:        "cs:metered/quantal/1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
 			Budget:          "personal",
@@ -110,11 +110,11 @@ func (s *registrationSuite) TestOptionalPlanMeteredCharm(c *gc.C) {
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
+		"IsMetered", []interface{}{"cs:metered/quantal/1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:       "model uuid",
-			CharmURL:        "cs:quantal/metered-1",
+			CharmURL:        "cs:metered/quantal/1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
 			Budget:          "personal",
@@ -149,11 +149,11 @@ func (s *registrationSuite) TestPlanNotSpecifiedCharm(c *gc.C) {
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
+		"IsMetered", []interface{}{"cs:metered/quantal/1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:       "model uuid",
-			CharmURL:        "cs:quantal/metered-1",
+			CharmURL:        "cs:metered/quantal/1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
 			Budget:          "personal",
@@ -186,11 +186,11 @@ func (s *registrationSuite) TestMeteredCharmAPIError(c *gc.C) {
 	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, gc.ErrorMatches, `authorization failed: something failed`)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
+		"IsMetered", []interface{}{"cs:metered/quantal/1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:       "model uuid",
-			CharmURL:        "cs:quantal/metered-1",
+			CharmURL:        "cs:metered/quantal/1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
 			Budget:          "personal",
@@ -248,11 +248,11 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 	authorization = append(authorization, byte(0xa))
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
+		"IsMetered", []interface{}{"cs:metered/quantal/1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:       "model uuid",
-			CharmURL:        "cs:quantal/metered-1",
+			CharmURL:        "cs:metered/quantal/1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
 			Budget:          "personal",
@@ -282,11 +282,11 @@ func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"local:quantal/metered-1"},
+		"IsMetered", []interface{}{"local:metered/quantal/1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:       "model uuid",
-			CharmURL:        "local:quantal/metered-1",
+			CharmURL:        "local:metered/quantal/1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
 			Budget:          "personal",
@@ -326,11 +326,11 @@ func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"local:quantal/metered-1"},
+		"IsMetered", []interface{}{"local:metered/quantal/1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:       "model uuid",
-			CharmURL:        "local:quantal/metered-1",
+			CharmURL:        "local:metered/quantal/1",
 			ApplicationName: "application name",
 			PlanURL:         "",
 			Budget:          "personal",
@@ -370,13 +370,13 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 	authorization = append(authorization, byte(0xa))
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
+		"IsMetered", []interface{}{"cs:metered/quantal/1"},
 	}, {
-		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
+		"DefaultPlan", []interface{}{"cs:metered/quantal/1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:       "model uuid",
-			CharmURL:        "cs:quantal/metered-1",
+			CharmURL:        "cs:metered/quantal/1",
 			ApplicationName: "application name",
 			PlanURL:         "thisplan",
 			Budget:          "personal",
@@ -410,13 +410,13 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 		},
 	}
 	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
-	c.Assert(err, gc.ErrorMatches, `cs:quantal/metered-1 has no default plan. Try "juju deploy --plan <plan-name> with one of thisplan, thisotherplan"`)
+	c.Assert(err, gc.ErrorMatches, `cs:metered/quantal/1 has no default plan. Try "juju deploy --plan <plan-name> with one of thisplan, thisotherplan"`)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
+		"IsMetered", []interface{}{"cs:metered/quantal/1"},
 	}, {
-		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
+		"DefaultPlan", []interface{}{"cs:metered/quantal/1"},
 	}, {
-		"ListPlans", []interface{}{"cs:quantal/metered-1"},
+		"ListPlans", []interface{}{"cs:metered/quantal/1"},
 	}})
 }
 
@@ -443,9 +443,9 @@ func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, gc.ErrorMatches, `failed to query default plan:.*`)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
+		"IsMetered", []interface{}{"cs:metered/quantal/1"},
 	}, {
-		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
+		"DefaultPlan", []interface{}{"cs:metered/quantal/1"},
 	}})
 }
 
@@ -466,7 +466,7 @@ func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/unmetered-1"},
+		"IsMetered", []interface{}{"cs:unmetered/quantal/1"},
 	}})
 	s.stub.ResetCalls()
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
@@ -496,11 +496,11 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 	authorization = append(authorization, byte(0xa))
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
+		"IsMetered", []interface{}{"cs:metered/quantal/1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:       "model uuid",
-			CharmURL:        "cs:quantal/metered-1",
+			CharmURL:        "cs:metered/quantal/1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
 			Budget:          "personal",
@@ -550,7 +550,7 @@ func (s *registrationSuite) TestPlanArgumentPlanRequiredInteraction(c *gc.C) {
 		planRequired:  true,
 		noDefaultPlan: true,
 		apiCalls:      []string{"IsMetered", "DefaultPlan", "ListPlans"},
-		err:           `cs:quantal/metered-1 has no default plan. Try "juju deploy --plan <plan-name> with one of thisplan, thisotherplan"`,
+		err:           `cs:metered/quantal/1 has no default plan. Try "juju deploy --plan <plan-name> with one of thisplan, thisotherplan"`,
 	},
 	}
 	for i, test := range tests {
@@ -716,7 +716,7 @@ func (s *noPlanRegistrationSuite) TestOptionalPlanMeteredCharm(c *gc.C) {
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
+		"IsMetered", []interface{}{"cs:metered/quantal/1"},
 	}})
 }
 
@@ -739,7 +739,7 @@ func (s *noPlanRegistrationSuite) TestPlanNotSpecifiedCharm(c *gc.C) {
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
+		"IsMetered", []interface{}{"cs:metered/quantal/1"},
 	}})
 }
 
@@ -750,7 +750,7 @@ type mockMeteredDeployAPI struct {
 
 func (m *mockMeteredDeployAPI) IsMetered(charmURL string) (bool, error) {
 	m.AddCall("IsMetered", charmURL)
-	if charmURL == "cs:quantal/metered-1" || charmURL == "local:quantal/metered-1" {
+	if charmURL == "cs:metered/quantal/1" || charmURL == "local:metered/quantal/1" {
 		return true, m.NextErr()
 	}
 	return false, m.NextErr()

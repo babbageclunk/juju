@@ -231,7 +231,7 @@ func (s *UpgradeCharmSuccessSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	c.Assert(ch.Revision(), gc.Equals, 8)
 	c.Assert(force, gc.Equals, false)
 	s.AssertCharmUploaded(c, ch.URL())
-	c.Assert(ch.URL().String(), gc.Equals, "local:precise/multi-series2-8")
+	c.Assert(ch.URL().String(), gc.Equals, "local:multi-series2/precise/8")
 }
 
 func (s *UpgradeCharmSuccessSuite) TestInitWithResources(c *gc.C) {
@@ -288,7 +288,7 @@ func (s *UpgradeCharmSuccessSuite) TestCharmPath(c *gc.C) {
 	err = runUpgradeCharm(c, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := s.assertUpgraded(c, s.riak, 42, false)
-	c.Assert(curl.String(), gc.Equals, "local:quantal/riak-42")
+	c.Assert(curl.String(), gc.Equals, "local:riak/quantal/42")
 	s.assertLocalRevision(c, 42, myriakPath)
 }
 
@@ -299,7 +299,7 @@ func (s *UpgradeCharmSuccessSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 	err := runUpgradeCharm(c, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := s.assertUpgraded(c, s.riak, 8, false)
-	c.Assert(curl.String(), gc.Equals, "local:quantal/riak-8")
+	c.Assert(curl.String(), gc.Equals, "local:riak/quantal/8")
 }
 
 func (s *UpgradeCharmSuccessSuite) TestCharmPathDifferentNameFails(c *gc.C) {
@@ -344,13 +344,13 @@ var upgradeCharmAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
 	switchURL:    "cs:~bob/trusty/wordpress5",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:bob/wordpress5/trusty": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
 }, {
 	about:        "non-public charm, fully resolved, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
 	switchURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:bob/wordpress6/trusty/47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
 }}
 
 func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmAuthorization(c *gc.C) {
@@ -388,18 +388,18 @@ func (s *UpgradeCharmCharmStoreSuite) TestSwitch(c *gc.C) {
 	err = runUpgradeCharm(c, "riak", "--switch=cs:~other/trusty/anotherriak")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := s.assertUpgraded(c, riak, 7, false)
-	c.Assert(curl.String(), gc.Equals, "cs:~other/trusty/anotherriak-7")
+	c.Assert(curl.String(), gc.Equals, "cs:other/anotherriak/trusty/7")
 
 	// Now try the same with explicit revision - should fail.
 	err = runUpgradeCharm(c, "riak", "--switch=cs:~other/trusty/anotherriak-7")
-	c.Assert(err, gc.ErrorMatches, `already running specified charm "cs:~other/trusty/anotherriak-7"`)
+	c.Assert(err, gc.ErrorMatches, `already running specified charm "cs:other/anotherriak/trusty/7"`)
 
 	// Change the revision to 42 and upgrade to it with explicit revision.
 	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/anotherriak-42", "riak")
 	err = runUpgradeCharm(c, "riak", "--switch=cs:~other/trusty/anotherriak-42")
 	c.Assert(err, jc.ErrorIsNil)
 	curl = s.assertUpgraded(c, riak, 42, false)
-	c.Assert(curl.String(), gc.Equals, "cs:~other/trusty/anotherriak-42")
+	c.Assert(curl.String(), gc.Equals, "cs:other/anotherriak/trusty/42")
 }
 
 func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmWithChannel(c *gc.C) {
@@ -420,9 +420,9 @@ func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmWithChannel(c *gc.C) {
 	err = runUpgradeCharm(c, "wordpress", "--channel", "beta")
 	c.Assert(err, gc.IsNil)
 
-	s.assertCharmsUploaded(c, "cs:~client-username/trusty/wordpress-0", "cs:~client-username/trusty/wordpress-1")
+	s.assertCharmsUploaded(c, "cs:client-username/wordpress/trusty/0", "cs:client-username/wordpress/trusty/1")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"wordpress": {charm: "cs:~client-username/trusty/wordpress-1"},
+		"wordpress": {charm: "cs:client-username/wordpress/trusty/1"},
 	})
 }
 

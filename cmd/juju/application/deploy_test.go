@@ -476,7 +476,7 @@ func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "terms1")
 	output, err := runDeployCommand(c, ch, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(output, gc.Equals, `Deploying charm "local:trusty/terms1-1".`)
+	c.Check(output, gc.Equals, `Deploying charm "local:terms1/trusty/1".`)
 
 	curl := charm.MustParseURL("local:trusty/terms1-1")
 	s.AssertService(c, "terms1", curl, 1, 0)
@@ -558,13 +558,13 @@ var deployAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
 	deployURL:    "cs:~bob/trusty/wordpress5",
 	readPermUser: "bob",
-	expectError:  `cannot resolve (charm )?URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve (charm )?URL "cs:bob/wordpress5/trusty": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
 }, {
 	about:        "non-public charm, fully resolved, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
 	deployURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:bob/wordpress6/trusty/47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
 }, {
 	about:     "public bundle, success",
 	uploadURL: "cs:~bob/bundle/wordpress-simple1-42",
@@ -579,7 +579,7 @@ var deployAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/bundle/wordpress-simple3-47",
 	deployURL:    "cs:~bob/bundle/wordpress-simple3",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/bundle/wordpress-simple3": cannot get "/~bob/bundle/wordpress-simple3/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:bob/wordpress-simple3": cannot get "/~bob/bundle/wordpress-simple3/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
 }}
 
 func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
@@ -622,9 +622,9 @@ Deploying charm "cs:trusty/terms1-1".
 Deployment under prior agreement to terms: term1/1 term3/1
 `
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUploaded(c, "cs:trusty/terms1-1")
+	s.assertCharmsUploaded(c, "cs:terms1/trusty/1")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"terms1": {charm: "cs:trusty/terms1-1"},
+		"terms1": {charm: "cs:terms1/trusty/1"},
 	})
 	_, err = s.State.Unit("terms1/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -652,9 +652,9 @@ func (s *DeployCharmStoreSuite) TestDeployWithChannel(c *gc.C) {
 
 	_, err = runDeployCommand(c, "--channel", "edge", "~client-username/wordpress")
 	c.Assert(err, gc.IsNil)
-	s.assertCharmsUploaded(c, "cs:~client-username/precise/wordpress-0")
+	s.assertCharmsUploaded(c, "cs:client-username/wordpress/precise/0")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"wordpress": {charm: "cs:~client-username/precise/wordpress-0"},
+		"wordpress": {charm: "cs:client-username/wordpress/precise/0"},
 	})
 }
 
@@ -922,7 +922,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-			CharmURL:        "cs:quantal/metered-1",
+			CharmURL:        "cs:metered/quantal/1",
 			ApplicationName: "metered",
 			PlanURL:         "someplan",
 			Budget:          "personal",
@@ -967,11 +967,11 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 
 	c.Check(setMetricCredentialsCall(), gc.Equals, 1)
 	stub.CheckCalls(c, []jujutesting.StubCall{{
-		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
+		"DefaultPlan", []interface{}{"cs:metered/quantal/1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-			CharmURL:        "cs:quantal/metered-1",
+			CharmURL:        "cs:metered/quantal/1",
 			ApplicationName: "metered",
 			PlanURL:         "thisplan",
 			Budget:          "personal",
@@ -1102,7 +1102,7 @@ summary: summary
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-			CharmURL:        "cs:~user/quantal/metered-0",
+			CharmURL:        "cs:user/metered/quantal/0",
 			ApplicationName: "metered",
 			PlanURL:         "someplan",
 			Budget:          "personal",
@@ -1121,7 +1121,7 @@ func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecified
 	err = runDeploy(c, "cs:quantal/wordpress-extra-bindings-1", "--bind", "db=db db-client=db public admin-api=public")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"wordpress-extra-bindings": {charm: "cs:quantal/wordpress-extra-bindings-1"},
+		"wordpress-extra-bindings": {charm: "cs:wordpress-extra-bindings/quantal/1"},
 	})
 	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
 		"wordpress-extra-bindings": {
@@ -1289,7 +1289,7 @@ func (s *DeployUnitTestSuite) TestDeployLocalCharm_GivesCorrectUserMessage(c *gc
 	context, err := jtesting.RunCommand(c, cmd, charmDir.Path, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(jtesting.Stderr(context), gc.Equals, `Deploying charm "local:trusty/dummy-1".`+"\n")
+	c.Check(jtesting.Stderr(context), gc.Equals, `Deploying charm "local:dummy/trusty/1".`+"\n")
 }
 
 func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) {
@@ -1336,8 +1336,8 @@ func (s *DeployUnitTestSuite) TestRedeployLocalCharm_SucceedsWhenDeployed(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(jtesting.Stderr(context), gc.Equals, ""+
-		`Located charm "local:trusty/dummy-0".`+"\n"+
-		`Deploying charm "local:trusty/dummy-0".`+"\n",
+		`Located charm "local:dummy/trusty/0".`+"\n"+
+		`Deploying charm "local:dummy/trusty/0".`+"\n",
 	)
 }
 
@@ -1394,7 +1394,7 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(jtesting.Stderr(context), gc.Equals, ""+
-		`Located bundle "cs:bundle/wordpress-simple"`+"\n"+
+		`Located bundle "cs:wordpress-simple"`+"\n"+
 		`Deploying charm "cs:mysql"`+"\n"+
 		`Deploying charm "cs:wordpress"`+"\n"+
 		`Related "wordpress:db" and "mysql:server"`+"\n"+

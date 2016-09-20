@@ -197,13 +197,13 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := testing.Stderr(ctx)
 
-	expectedOutput := `Located charm "cs:trusty/starsay-1".
-Deploying charm "cs:trusty/starsay-1".
+	expectedOutput := `Located charm "cs:starsay/trusty/1".
+Deploying charm "cs:starsay/trusty/1".
 `
 	c.Assert(output, gc.Equals, expectedOutput)
-	s.assertCharmsUploaded(c, "cs:trusty/starsay-1")
+	s.assertCharmsUploaded(c, "cs:starsay/trusty/1")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"starsay": {charm: "cs:trusty/starsay-1"},
+		"starsay": {charm: "cs:starsay/trusty/1"},
 	})
 	_, err = s.State.Unit("starsay/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -283,7 +283,7 @@ Deploying charm "cs:trusty/starsay-1".
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"starsay": {charm: "cs:trusty/starsay-2"},
+		"starsay": {charm: "cs:starsay/trusty/2"},
 	})
 
 	res, err = s.State.Resources()

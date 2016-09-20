@@ -40,7 +40,7 @@ func runDeployCommand(c *gc.C, id string, args ...string) (string, error) {
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C) {
 	err := runDeploy(c, "bundle/no-such")
-	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:bundle/no-such": bundle not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:no-such": bundle not found`)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
@@ -61,10 +61,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
 	_, err := runDeployCommand(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
+	s.assertCharmsUploaded(c, "cs:mysql/xenial/42", "cs:wordpress/xenial/47")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "cs:xenial/mysql-42"},
-		"wordpress": {charm: "cs:xenial/wordpress-47"},
+		"mysql":     {charm: "cs:mysql/xenial/42"},
+		"wordpress": {charm: "cs:wordpress/xenial/47"},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -79,10 +79,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithTermsSuccess(c *gc.C) 
 	testcharms.UploadBundle(c, s.client, "bundle/terms-simple-1", "terms-simple")
 	_, err := runDeployCommand(c, "bundle/terms-simple")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:xenial/terms1-17", "cs:xenial/terms2-42")
+	s.assertCharmsUploaded(c, "cs:terms1/xenial/17", "cs:terms2/xenial/42")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"terms1": {charm: "cs:xenial/terms1-17"},
-		"terms2": {charm: "cs:xenial/terms2-42"},
+		"terms1": {charm: "cs:terms1/xenial/17"},
+		"terms2": {charm: "cs:terms2/xenial/42"},
 	})
 	s.assertUnitsCreated(c, map[string]string{
 		"terms1/0": "0",
@@ -100,16 +100,16 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
 		"--storage", "mysql:logs=tmpfs,10G", // override logs
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
+	s.assertCharmsUploaded(c, "cs:mysql/xenial/42", "cs:wordpress/xenial/47")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
 		"mysql": {
-			charm: "cs:xenial/mysql-42",
+			charm: "cs:mysql/xenial/42",
 			storage: map[string]state.StorageConstraints{
 				"data": state.StorageConstraints{Pool: "rootfs", Size: 50 * 1024, Count: 1},
 				"logs": state.StorageConstraints{Pool: "tmpfs", Size: 10 * 1024, Count: 1},
 			},
 		},
-		"wordpress": {charm: "cs:xenial/wordpress-47"},
+		"wordpress": {charm: "cs:wordpress/xenial/47"},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -128,9 +128,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissi
 		"cannot add application \"mysql\": unknown space \"db\" not valid")
 	c.Assert(output, gc.Equals, ""+
 		`Located bundle "cs:bundle/wordpress-with-endpoint-bindings-1"`+"\n"+
-		`Deploying charm "cs:xenial/mysql-42"`,
+		`Deploying charm "cs:mysql/xenial/42"`,
 	)
-	s.assertCharmsUploaded(c, "cs:xenial/mysql-42")
+	s.assertCharmsUploaded(c, "cs:mysql/xenial/42")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{})
 	s.assertUnitsCreated(c, map[string]string{})
 }
@@ -146,11 +146,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
 	_, err = runDeployCommand(c, "bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-extra-bindings-47")
+	s.assertCharmsUploaded(c, "cs:mysql/xenial/42", "cs:wordpress-extra-bindings/xenial/47")
 
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"mysql":                    {charm: "cs:xenial/mysql-42"},
-		"wordpress-extra-bindings": {charm: "cs:xenial/wordpress-extra-bindings-47"},
+		"mysql":                    {charm: "cs:mysql/xenial/42"},
+		"wordpress-extra-bindings": {charm: "cs:wordpress-extra-bindings/xenial/47"},
 	})
 	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
 		"mysql": {
@@ -185,10 +185,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runDeployCommand(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
+	s.assertCharmsUploaded(c, "cs:mysql/xenial/42", "cs:wordpress/xenial/47")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "cs:xenial/mysql-42"},
-		"wordpress": {charm: "cs:xenial/wordpress-47"},
+		"mysql":     {charm: "cs:mysql/xenial/42"},
+		"wordpress": {charm: "cs:wordpress/xenial/47"},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -204,10 +204,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharm(c *gc.C) {
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
 	_, err := runDeployCommand(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
+	s.assertCharmsUploaded(c, "cs:mysql/xenial/42", "cs:wordpress/xenial/47")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "cs:xenial/mysql-42"},
-		"wordpress": {charm: "cs:xenial/wordpress-47"},
+		"mysql":     {charm: "cs:mysql/xenial/42"},
+		"wordpress": {charm: "cs:wordpress/xenial/47"},
 	})
 }
 
@@ -227,9 +227,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runDeployCommand(c, path)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "local:xenial/dummy-1")
+	s.assertCharmsUploaded(c, "local:dummy/xenial/1")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"dummy": {charm: "local:xenial/dummy-1"},
+		"dummy": {charm: "local:dummy/xenial/1"},
 	})
 }
 
@@ -248,9 +248,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNoSeriesInCharmURL(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runDeployCommand(c, path)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:~who/multi-series-0")
+	s.assertCharmsUploaded(c, "cs:who/multi-series/0")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"dummy": {charm: "cs:~who/multi-series-0"},
+		"dummy": {charm: "cs:who/multi-series/0"},
 	})
 }
 
@@ -314,7 +314,7 @@ charm path in application "mysql" does not exist: mysql`,
                 charm: xenial/rails-42
                 num_units: 1
     `,
-	err: `cannot deploy bundle: cannot resolve URL "xenial/rails-42": cannot resolve URL "cs:xenial/rails-42": charm not found`,
+	err: `cannot deploy bundle: cannot resolve URL "xenial/rails-42": cannot resolve URL "cs:rails/xenial/42": charm not found`,
 }, {
 	about:   "invalid bundle content",
 	content: "!",
@@ -461,10 +461,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
             - ["wordpress:db", "mysql:server"]
     `, wordpressPath, mysqlPath))
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "local:xenial/mysql-1", "local:xenial/wordpress-3")
+	s.assertCharmsUploaded(c, "local:mysql/xenial/1", "local:wordpress/xenial/3")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "local:xenial/mysql-1"},
-		"wordpress": {charm: "local:xenial/wordpress-3"},
+		"mysql":     {charm: "local:mysql/xenial/1"},
+		"wordpress": {charm: "local:wordpress/xenial/3"},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -492,10 +492,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c
             - ["wordpress:db", "mysql:server"]
     `, mysqlPath))
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "local:xenial/mysql-1", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "local:mysql/xenial/1", "cs:wordpress/xenial/42")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "local:xenial/mysql-1"},
-		"wordpress": {charm: "cs:xenial/wordpress-42"},
+		"mysql":     {charm: "local:mysql/xenial/1"},
+		"wordpress": {charm: "cs:wordpress/xenial/42"},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -522,14 +522,14 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationOptions(c *gc.C
                     skill-level: 47
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:precise/dummy-0", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:dummy/precise/0", "cs:wordpress/xenial/42")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
 		"customized": {
-			charm:  "cs:precise/dummy-0",
+			charm:  "cs:dummy/precise/0",
 			config: charm.Settings{"username": "who", "skill-level": int64(47)},
 		},
 		"wordpress": {
-			charm:  "cs:xenial/wordpress-42",
+			charm:  "cs:wordpress/xenial/42",
 			config: charm.Settings{"blog-title": "these are the voyages"},
 		},
 	})
@@ -553,14 +553,14 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstrants(c *g
                 constraints: arch=i386
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:precise/dummy-0", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:dummy/precise/0", "cs:wordpress/xenial/42")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
 		"customized": {
-			charm:       "cs:precise/dummy-0",
+			charm:       "cs:dummy/precise/0",
 			constraints: constraints.MustParse("arch=i386"),
 		},
 		"wordpress": {
-			charm:       "cs:xenial/wordpress-42",
+			charm:       "cs:wordpress/xenial/42",
 			constraints: constraints.MustParse("mem=4G cores=2"),
 		},
 	})
@@ -588,7 +588,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
                 num_units: 1
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:upgrade/vivid/1", "cs:wordpress/xenial/42")
 
 	// Then deploy a new bundle with modified charm revision and options.
 	_, err = s.DeployBundleYAML(c, `
@@ -604,11 +604,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
                 num_units: 1
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:vivid/upgrade-2", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:upgrade/vivid/1", "cs:upgrade/vivid/2", "cs:wordpress/xenial/42")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"up": {charm: "cs:vivid/upgrade-2"},
+		"up": {charm: "cs:upgrade/vivid/2"},
 		"wordpress": {
-			charm:       "cs:xenial/wordpress-42",
+			charm:       "cs:wordpress/xenial/42",
 			config:      charm.Settings{"blog-title": "new title"},
 			constraints: constraints.MustParse("spaces=new cores=8"),
 		},
@@ -630,7 +630,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
     `
 	expectedApplications := map[string]serviceInfo{
 		"wordpress": {
-			charm:   "cs:xenial/wordpress-42",
+			charm:   "cs:wordpress/xenial/42",
 			exposed: true,
 		},
 	}
@@ -670,21 +670,21 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgradeFailure(
                 charm: xenial/incompatible-42
                 num_units: 1
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade application "wordpress": bundle charm "cs:xenial/incompatible-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade application "wordpress": bundle charm "cs:incompatible/xenial/42" is incompatible with existing charm "local:wordpress/quantal/3"`)
 
 	// Try upgrading to a different series.
 	// Note that this test comes before the next one because
 	// otherwise we can't resolve the charm URL because the charm's
 	// "base entity" is not marked as promulgated so the query by
 	// promulgated will find it.
-	testcharms.UploadCharm(c, s.client, "vivid/wordpress-42", "wordpress")
+	testcharms.UploadCharm(c, s.client, "wordpress/vivid/42", "wordpress")
 	_, err = s.DeployBundleYAML(c, `
         applications:
             wordpress:
                 charm: vivid/wordpress
                 num_units: 1
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade application "wordpress": bundle charm "cs:vivid/wordpress-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade application "wordpress": bundle charm "cs:wordpress/vivid/42" is incompatible with existing charm "local:wordpress/quantal/3"`)
 
 	// Try upgrading to a different user.
 	testcharms.UploadCharm(c, s.client, "~who/xenial/wordpress-42", "wordpress")
@@ -694,7 +694,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgradeFailure(
                 charm: cs:~who/xenial/wordpress-42
                 num_units: 1
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade application "wordpress": bundle charm "cs:~who/xenial/wordpress-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade application "wordpress": bundle charm "cs:who/wordpress/xenial/42" is incompatible with existing charm "local:wordpress/quantal/3"`)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C) {
@@ -803,9 +803,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachinesUnitsPlacement(c *
 	_, err := s.DeployBundleYAML(c, content)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"sql": {charm: "cs:xenial/mysql-2"},
+		"sql": {charm: "cs:mysql/xenial/2"},
 		"wp": {
-			charm:  "cs:xenial/wordpress-0",
+			charm:  "cs:wordpress/xenial/0",
 			config: charm.Settings{"blog-title": "these are the voyages"},
 		},
 	})
@@ -903,7 +903,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C)
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"django": {charm: "cs:xenial/django-42"},
+		"django": {charm: "cs:django/xenial/42"},
 	})
 	s.assertRelationsEstablished(c)
 	s.assertUnitsCreated(c, map[string]string{
@@ -1152,8 +1152,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCo
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(output, gc.Equals, ""+
-		`Deploying charm "cs:xenial/django-42"`+"\n"+
-		`Deploying charm "cs:xenial/mem-47"`+"\n"+
+		`Deploying charm "cs:django/xenial/42"`+"\n"+
+		`Deploying charm "cs:mem/xenial/47"`+"\n"+
 		`Deploy of bundle completed.`,
 	)
 }
