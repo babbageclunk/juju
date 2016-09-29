@@ -1,21 +1,21 @@
 package testing
 
 import (
-	"crypto/tls"
+	// "crypto/tls"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"reflect"
 
 	"github.com/bmizerany/pat"
-	"github.com/juju/utils"
+	// "github.com/juju/utils"
 	"golang.org/x/net/websocket"
 
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/rpcreflect"
-	"github.com/juju/juju/testing"
+	// "github.com/juju/juju/testing"
 )
 
 // Server represents a fake API server. It must be closed
@@ -43,10 +43,10 @@ type Server struct {
 //
 // The returned server must be closed after use.
 func NewAPIServer(newRoot func(modelUUID string) interface{}) *Server {
-	tlsCert, err := tls.X509KeyPair([]byte(testing.ServerCert), []byte(testing.ServerKey))
-	if err != nil {
-		panic("bad key pair")
-	}
+	// tlsCert, err := tls.X509KeyPair([]byte(testing.ServerCert), []byte(testing.ServerKey))
+	// if err != nil {
+	// 	panic("bad key pair")
+	// }
 
 	srv := &Server{
 		newRoot: newRoot,
@@ -56,11 +56,11 @@ func NewAPIServer(newRoot func(modelUUID string) interface{}) *Server {
 
 	srv.Server = httptest.NewUnstartedServer(pmux)
 
-	tlsConfig := utils.SecureTLSConfig()
-	tlsConfig.Certificates = []tls.Certificate{tlsCert}
-	srv.Server.TLS = tlsConfig
+	// tlsConfig := utils.SecureTLSConfig()
+	// tlsConfig.Certificates = []tls.Certificate{tlsCert}
+	// srv.Server.TLS = tlsConfig
 
-	srv.StartTLS()
+	// srv.StartTLS()
 	u, _ := url.Parse(srv.URL)
 	srv.Addrs = []string{u.Host}
 	return srv
