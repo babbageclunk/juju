@@ -222,7 +222,7 @@ func open(
 			Path:   "/",
 		},
 		pingerFacadeVersion: facadeVersions["Pinger"],
-		serverScheme:        "https",
+		serverScheme:        "http",
 		serverRootAddress:   conn.Config().Location.Host,
 		// We populate the username and password before
 		// login because, when doing HTTP requests, we'll want
@@ -479,11 +479,11 @@ func dialWebsocket(addr, path string, opts DialOpts, tlsConfig *tls.Config, try 
 	// in websockets. We pass localhost to satisfy the API; it is
 	// inconsequential to us.
 	const origin = "http://localhost/"
-	cfg, err := websocket.NewConfig("wss://"+addr+path, origin)
+	cfg, err := websocket.NewConfig("ws://"+addr+path, origin)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cfg.TlsConfig = tlsConfig
+	// cfg.TlsConfig = tlsConfig
 	return try.Start(newWebsocketDialer(cfg, opts))
 }
 

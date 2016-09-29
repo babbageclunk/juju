@@ -556,6 +556,7 @@ func (cl *changeCertListener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	return conn, nil
 	return tls.Server(conn, cl.tlsConfig()), nil
 }
 
