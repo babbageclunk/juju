@@ -5,9 +5,12 @@ package introspection
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"runtime"
+	"runtime/debug"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -88,6 +91,7 @@ func (w *socketListener) serve() {
 	mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 	mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 	mux.Handle("/depengine/", http.HandlerFunc(w.depengineReport))
+	mux.Handle("/heapdump/", http.HandlerFunc(w.heapDump))
 
 	srv := http.Server{
 		Handler: mux,
@@ -136,4 +140,47 @@ func (s *socketListener) depengineReport(w http.ResponseWriter, r *http.Request)
 
 	fmt.Fprint(w, "Dependency Engine Report\n\n")
 	w.Write(bytes)
+}
+
+func (s *socketListener) heapDump(w http.ResponseWriter, r *http.Request) {
+	heapData, err := getHeapDump()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "error: %v\n", err)
+		return
+	}
+
+	w.Write(heapData)
+}
+
+func getHeapDump() ([]byte, error) {
+	outfile, err := ioutil.TempFile("", "jujud-heapdump")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer func() {
+		err := outfile.Close()
+		if err != nil {
+			logger.Errorf("Error closing heap dump tempfile: %v", err)
+		}
+		err = os.Remove(outfile.Name())
+		if err != nil {
+			logger.Errorf("Error removing heap dump tempfile %s: %v", outfile.Name(), err)
+		}
+	}()
+
+	// WriteHeapDump can't write to a Writer, only to an fd. I think
+	// it's because it needs to stop everything so the dump is
+	// consistent, which means the destination needs to be
+	// out-of-process.
+	debug.WriteHeapDump(outfile.Fd())
+	_, err = outfile.Seek(0, 0)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	data, err := ioutil.ReadAll(outfile)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return data, nil
 }
