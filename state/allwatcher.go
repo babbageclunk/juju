@@ -29,9 +29,9 @@ type allWatcherStateBacking struct {
 // allModelWatcherStateBacking implements Backing by fetching entities
 // for all models from the State.
 type allModelWatcherStateBacking struct {
-	st               *State
-	watcher          workers.TxnLogWatcher
-	stPool           *StatePool
+	st      *State
+	watcher workers.TxnLogWatcher
+	// stPool           *StatePool
 	collectionByName map[string]allWatcherStateCollection
 }
 
@@ -1074,9 +1074,9 @@ func NewAllModelWatcherStateBacking(st *State) Backing {
 		openedPortsC,
 	)
 	return &allModelWatcherStateBacking{
-		st:               st,
-		watcher:          st.workers.TxnLogWatcher(),
-		stPool:           NewStatePool(st),
+		st:      st,
+		watcher: st.workers.TxnLogWatcher(),
+		// stPool:           NewStatePool(st),
 		collectionByName: collections,
 	}
 }
@@ -1183,7 +1183,8 @@ func (b *allModelWatcherStateBacking) getState(collName, modelUUID string) (*Sta
 		return b.st, nil
 	}
 
-	st, err := b.stPool.Get(modelUUID)
+	// st, err := b.stPool.Get(modelUUID)
+	st, err := b.st.ForModel(names.NewModelTag(modelUUID))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1192,8 +1193,9 @@ func (b *allModelWatcherStateBacking) getState(collName, modelUUID string) (*Sta
 
 // Release implements the Backing interface.
 func (b *allModelWatcherStateBacking) Release() error {
-	err := b.stPool.Close()
-	return errors.Trace(err)
+	// err := b.stPool.Close()
+	// return errors.Trace(err)
+	return nil
 }
 
 func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherStateCollection, all *multiwatcherStore) error {

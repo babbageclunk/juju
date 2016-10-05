@@ -9,6 +9,7 @@ package state
 import (
 	"fmt"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -351,7 +352,8 @@ func (st *State) start(controllerTag names.ControllerTag) (err error) {
 	}
 	// now we've set up leaseClientId, we can use workersFactory
 
-	logger.Infof("starting standard state workers")
+	logger.Infof("starting standard state workers: %p", st)
+	logger.Debugf("stack: %s", string(debug.Stack()))
 	factory := workersFactory{
 		st:    st,
 		clock: st.clock,

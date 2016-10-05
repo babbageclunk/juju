@@ -132,17 +132,11 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 }
 
 func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, err error) {
-	stPool := cfg.StatePool
-	if stPool == nil {
-		stPool = state.NewStatePool(s)
-	}
-
 	srv := &Server{
 		clock:       cfg.Clock,
 		lis:         lis,
 		newObserver: cfg.NewObserver,
 		state:       s,
-		statePool:   stPool,
 		tag:         cfg.Tag,
 		dataDir:     cfg.DataDir,
 		logDir:      cfg.LogDir,
@@ -152,6 +146,11 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 			3: newAdminAPIV3,
 		},
 		certChanged: cfg.CertChanged,
+	}
+
+	srv.statePool = cfg.StatePool
+	if srv.statePool == nil {
+		srv.statePool = state.NewStatePool(s, &srv.tomb)
 	}
 
 	srv.tlsConfig = srv.newTLSConfig()
