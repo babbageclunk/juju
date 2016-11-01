@@ -262,10 +262,43 @@ func (s *MigrationSuite) TestLatestMigration(c *gc.C) {
 	c.Assert(mig1.Id(), gc.Equals, mig2.Id())
 }
 
-func (s *MigrationSuite) TestLatestMigrationNotExist(c *gc.C) {
+func (s *MigrationSuite) TestLatestMigrationWithNoMigration(c *gc.C) {
 	mig, err := s.State.LatestMigration()
 	c.Check(mig, gc.IsNil)
 	c.Check(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *MigrationSuite) TestLatestMigrationFor(c *gc.C) {
+	mig1, err := s.State2.CreateMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mig2, err := s.State2.LatestMigrationFor(s.State2.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(mig1.Id(), gc.Equals, mig2.Id())
+}
+
+func (s *MigrationSuite) TestLatestMigrationForWithNoMigration(c *gc.C) {
+	mig, err := s.State.LatestMigrationFor(s.State2.ModelTag())
+	c.Check(mig, gc.IsNil)
+	c.Check(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *MigrationSuite) TestLatestMigrationForDoneWithNoModel(c *gc.C) {
+	mig1, err := s.State2.CreateMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, name := range []string{"IMPORT", "VALIDATION", "SUCCESS", "LOGTRANSFER", "REAP", "DONE"} {
+		phase, ok := migration.ParsePhase(name)
+		c.Assert(ok, jc.IsTrue)
+		err = mig1.SetPhase(phase)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	err = s.State2.RemoveExportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	mig2, err := s.State.LatestMigrationFor(s.State2.ModelTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(mig2.Id(), gc.Equals, mig1.Id())
 }
 
 func (s *MigrationSuite) TestGetsLatestAttempt(c *gc.C) {

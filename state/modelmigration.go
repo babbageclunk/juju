@@ -733,6 +733,7 @@ func (st *State) LatestMigrationFor(modelTag names.ModelTag) (ModelMigration, er
 	if phase == migration.DONE {
 		model, err := st.GetModel(modelTag)
 		if errors.IsNotFound(err) {
+			// The model is gone so it's fine to return this migration.
 			return mig, nil
 		}
 		if err != nil {
