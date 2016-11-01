@@ -107,7 +107,6 @@ func getMigrationRedirectInfo(ssState *state.State, modelUUID string) (*params.R
 		}
 	}
 	return nil, nil
-
 }
 
 func redirectInfoFromMigration(migration state.ModelMigration) (*params.RedirectInfoResult, error) {

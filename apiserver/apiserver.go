@@ -568,11 +568,6 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 
 	conn := rpc.NewConn(codec, apiObserver)
 
-	var (
-		st       *state.State
-		h        *apiHandler
-		redirect *params.RedirectInfoResult
-	)
 	overrideModelUUID, err := ensureValidModelUUID(validateArgs{
 		statePool: srv.statePool,
 		modelUUID: modelUUID,
@@ -585,31 +580,44 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 		resolvedModelUUID = overrideModelUUID
 	}
 
-	if err == nil {
-		redirect, err = getMigrationRedirectInfo(srv.state, resolvedModelUUID)
-	}
-
-	if err == nil {
-		err = checkModelExists(srv.state, resolvedModelUUID)
-	}
-
-	if err == nil && redirect == nil {
-		st, err = srv.statePool.Get(resolvedModelUUID)
-		defer func() {
-			err := srv.statePool.Release(resolvedModelUUID)
-			if err != nil {
-				logger.Errorf("error releasing %v back into the state pool:", err)
-			}
-		}()
-	}
-
-	if err == nil {
-		h, err = newAPIHandler(srv, st, conn, modelUUID, host)
-	}
+	var (
+		st       *state.State
+		h        *apiHandler
+		redirect *params.RedirectInfoResult
+	)
 
 	if err != nil {
-		conn.ServeRoot(&errRoot{errors.Trace(err)}, serverError)
-	} else if redirect != nil {
+		goto serveError
+	}
+
+	redirect, err = getMigrationRedirectInfo(srv.state, resolvedModelUUID)
+	if err != nil {
+		goto serveError
+	}
+
+	err = checkModelExists(srv.state, resolvedModelUUID)
+	if err != nil && redirect == nil {
+		goto serveError
+	}
+
+	st, err = srv.statePool.Get(resolvedModelUUID)
+	if err != nil {
+		goto serveError
+	}
+
+	defer func() {
+		err := srv.statePool.Release(resolvedModelUUID)
+		if err != nil {
+			logger.Errorf("error releasing %v back into the state pool:", err)
+		}
+	}()
+
+	h, err = newAPIHandler(srv, st, conn, modelUUID, host)
+	if err != nil {
+		goto serveError
+	}
+
+	if redirect != nil {
 		adminAPIs := map[int]interface{}{
 			3: newRedirectAdminAPI(srv, h, apiObserver, *redirect),
 		}
@@ -621,6 +629,13 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 		}
 		conn.ServeRoot(newAnonRoot(h, adminAPIs), serverError)
 	}
+
+	goto run
+
+serveError:
+	conn.ServeRoot(&errRoot{errors.Trace(err)}, serverError)
+
+run:
 	conn.Start()
 	select {
 	case <-conn.Dead():
