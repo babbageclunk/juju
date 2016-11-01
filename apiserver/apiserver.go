@@ -40,33 +40,29 @@ var logger = loggo.GetLogger("juju.apiserver")
 // accept
 const loginRateLimit = 10
 
-type adminAPIFactory func(*Server, *apiHandler, observer.Observer) interface{}
-type redirectAPIFactory func(*Server, *apiHandler, observer.Observer, params.RedirectInfoResult) interface{}
-
 // Server holds the server side of the API.
 type Server struct {
-	tomb                 tomb.Tomb
-	clock                clock.Clock
-	pingClock            clock.Clock
-	wg                   sync.WaitGroup
-	state                *state.State
-	statePool            *state.StatePool
-	lis                  net.Listener
-	tag                  names.Tag
-	dataDir              string
-	logDir               string
-	limiter              utils.Limiter
-	validator            LoginValidator
-	adminAPIFactories    map[int]adminAPIFactory
-	redirectAPIFactories map[int]redirectAPIFactory
-	modelUUID            string
-	authCtxt             *authContext
-	lastConnectionID     uint64
-	newObserver          observer.ObserverFactory
-	connCount            int64
-	certChanged          <-chan params.StateServingInfo
-	tlsConfig            *tls.Config
-	allowModelAccess     bool
+	tomb              tomb.Tomb
+	clock             clock.Clock
+	pingClock         clock.Clock
+	wg                sync.WaitGroup
+	state             *state.State
+	statePool         *state.StatePool
+	lis               net.Listener
+	tag               names.Tag
+	dataDir           string
+	logDir            string
+	limiter           utils.Limiter
+	validator         LoginValidator
+	adminAPIFactories map[int]adminAPIFactory
+	modelUUID         string
+	authCtxt          *authContext
+	lastConnectionID  uint64
+	newObserver       observer.ObserverFactory
+	connCount         int64
+	certChanged       <-chan params.StateServingInfo
+	tlsConfig         *tls.Config
+	allowModelAccess  bool
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -181,9 +177,6 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		validator:   cfg.Validator,
 		adminAPIFactories: map[int]adminAPIFactory{
 			3: newAdminAPIV3,
-		},
-		redirectAPIFactories: map[int]redirectAPIFactory{
-			3: newRedirectAdminAPI,
 		},
 		certChanged:      cfg.CertChanged,
 		allowModelAccess: cfg.AllowModelAccess,
@@ -564,8 +557,14 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer, host string) error {
-	codec := jsoncodec.NewWebsocket(wsConn)
+	var (
+		st       *state.State
+		h        *apiHandler
+		redirect *params.RedirectInfoResult
+	)
+	adminAPIs := make(map[int]interface{})
 
+	codec := jsoncodec.NewWebsocket(wsConn)
 	conn := rpc.NewConn(codec, apiObserver)
 
 	overrideModelUUID, err := ensureValidModelUUID(validateArgs{
@@ -579,13 +578,6 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 	if overrideModelUUID != "" {
 		resolvedModelUUID = overrideModelUUID
 	}
-
-	var (
-		st       *state.State
-		h        *apiHandler
-		redirect *params.RedirectInfoResult
-	)
-
 	if err != nil {
 		goto serveError
 	}
@@ -618,17 +610,13 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 	}
 
 	if redirect != nil {
-		adminAPIs := map[int]interface{}{
-			3: newRedirectAdminAPI(srv, h, apiObserver, *redirect),
-		}
-		conn.ServeRoot(newAnonRoot(h, adminAPIs), serverError)
+		adminAPIs[3] = newRedirectAdminAPI(srv, h, apiObserver, *redirect)
 	} else {
-		adminAPIs := make(map[int]interface{})
 		for apiVersion, factory := range srv.adminAPIFactories {
 			adminAPIs[apiVersion] = factory(srv, h, apiObserver)
 		}
-		conn.ServeRoot(newAnonRoot(h, adminAPIs), serverError)
 	}
+	conn.ServeRoot(newAnonRoot(h, adminAPIs), serverError)
 
 	goto run
 

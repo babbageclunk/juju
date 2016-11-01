@@ -72,7 +72,7 @@ func ensureValidModelUUID(args validateArgs) (string, error) {
 		return ssState.ModelUUID(), nil
 	}
 	if args.modelUUID == ssState.ModelUUID() {
-		return ssState.ModelUUID(), nil
+		return args.modelUUID, nil
 	}
 	if args.controllerModelOnly {
 		return "", errors.Unauthorizedf("requested model %q is not the controller model", args.modelUUID)
