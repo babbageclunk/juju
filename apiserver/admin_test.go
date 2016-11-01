@@ -1212,15 +1212,69 @@ func (s *migrationSuite) TestNoModelUserLoginRedirects(c *gc.C) {
 }
 
 func (s *migrationSuite) TestNoModelMachineLoginErrors(c *gc.C) {
-	c.Fatalf("writeme")
+	modelState := s.Factory.MakeModel(c, nil)
+	modelFactory := factory.NewFactory(modelState)
+	// 25 chars long - 18 bytes base64 encoded.
+	password := "shhh....................."
+	machine := modelFactory.MakeMachine(c, &factory.MachineParams{
+		Password: password,
+		Nonce:    "no-offenc",
+	})
+	s.makeSuccessfulMigration(c, modelState)
+	err := modelState.RemoveExportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+	modelState.Close()
+
+	conn := s.openAPIWithoutLogin(c, s.apiInfoFor(c, modelState.ModelUUID()))
+	var result params.LoginResult
+	request := &params.LoginRequest{
+		AuthTag:     machine.Tag().String(),
+		Credentials: password,
+		Nonce:       "no-offenc",
+	}
+	// This login fails - the machine no longer exists (it was removed
+	// with the model).
+	err = conn.APICall("Admin", 3, "", "Login", request, &result)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *migrationSuite) TestRedirectInfo(c *gc.C) {
-	c.Fatalf("writeme")
+	modelState := s.Factory.MakeModel(c, nil)
+	defer modelState.Close()
+	s.makeSuccessfulMigration(c, modelState)
+	conn := s.openAPIWithoutLogin(c, s.apiInfoFor(c, modelState.ModelUUID()))
+	var result params.RedirectInfoResult
+	err := conn.APICall("Admin", 3, "", "RedirectInfo", nil, &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.RedirectInfoResult{
+		Servers: [][]params.HostPort{{
+			{
+				Address: params.Address{
+					Value: "1.2.3.4",
+					Type:  "ipv4",
+					Scope: "public",
+				},
+				Port: 5555,
+			}, {
+				Address: params.Address{
+					Value: "4.3.2.1",
+					Type:  "ipv4",
+					Scope: "public",
+				},
+				Port: 6666,
+			},
+		}},
+		CACert: "cert",
+	})
 }
 
 func (s *migrationSuite) TestRedirectInfoWithoutSuccessfulMigration(c *gc.C) {
-	c.Fatalf("writeme")
+	modelState := s.Factory.MakeModel(c, nil)
+	defer modelState.Close()
+	conn := s.openAPIWithoutLogin(c, s.apiInfoFor(c, modelState.ModelUUID()))
+	var result params.RedirectInfoResult
+	err := conn.APICall("Admin", 3, "", "RedirectInfo", nil, &result)
+	c.Assert(err, gc.ErrorMatches, "not redirected")
 }
 
 func (s *migrationSuite) apiInfoFor(c *gc.C, modelUUID string) *api.Info {
