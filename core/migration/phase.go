@@ -3,6 +3,10 @@
 
 package migration
 
+import (
+	"github.com/juju/utils/set"
+)
+
 // Phase values specify model migration phases.
 type Phase int
 
@@ -88,6 +92,11 @@ func (p Phase) IsRunning() bool {
 	}
 }
 
+// HasSucceeded returns whether this phase is at or after SUCCESS.
+func (p Phase) HasSucceeded() bool {
+	return p == SUCCESS || followingSuccess.Contains(int(p))
+}
+
 // Define all possible phase transitions.
 //
 // The keys are the "from" states and the values enumerate the
@@ -102,7 +111,10 @@ var validTransitions = map[Phase][]Phase{
 	ABORT:       {ABORTDONE},
 }
 
-var terminalPhases []Phase
+var (
+	terminalPhases   []Phase
+	followingSuccess set.Ints
+)
 
 func init() {
 	// Compute the terminal phases.
@@ -112,6 +124,22 @@ func init() {
 			terminalPhases = append(terminalPhases, phase)
 		}
 	}
+	followingSuccess = phasesFollowing(SUCCESS)
+}
+
+func phasesFollowing(start Phase) set.Ints {
+	result := set.NewInts()
+	transitions, found := validTransitions[start]
+	if !found {
+		return result
+	}
+	for _, phase := range transitions {
+		result.Add(int(phase))
+		for following := range phasesFollowing(phase) {
+			result.Add(following)
+		}
+	}
+	return result
 }
 
 // ParsePhase converts a string model migration phase name
