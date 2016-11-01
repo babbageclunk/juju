@@ -8,6 +8,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -43,6 +45,21 @@ type validateArgs struct {
 //
 // It returns the validated model UUID.
 func validateModelUUID(args validateArgs) (string, error) {
+	overrideUUID, err := ensureValidModelUUID(args)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if overrideUUID != "" {
+		return overrideUUID, nil
+	}
+	err = checkModelExists(args.statePool.SystemState(), args.modelUUID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return args.modelUUID, nil
+}
+
+func ensureValidModelUUID(args validateArgs) (string, error) {
 	ssState := args.statePool.SystemState()
 	if args.modelUUID == "" {
 		// We allow the modelUUID to be empty so that:
@@ -55,7 +72,7 @@ func validateModelUUID(args validateArgs) (string, error) {
 		return ssState.ModelUUID(), nil
 	}
 	if args.modelUUID == ssState.ModelUUID() {
-		return args.modelUUID, nil
+		return ssState.ModelUUID(), nil
 	}
 	if args.controllerModelOnly {
 		return "", errors.Unauthorizedf("requested model %q is not the controller model", args.modelUUID)
@@ -63,9 +80,48 @@ func validateModelUUID(args validateArgs) (string, error) {
 	if !names.IsValidModel(args.modelUUID) {
 		return "", errors.Trace(common.UnknownModelError(args.modelUUID))
 	}
-	modelTag := names.NewModelTag(args.modelUUID)
+	return "", nil
+}
+
+func checkModelExists(ssState *state.State, modelUUID string) error {
+	modelTag := names.NewModelTag(modelUUID)
 	if _, err := ssState.GetModel(modelTag); err != nil {
-		return "", errors.Wrap(err, common.UnknownModelError(args.modelUUID))
+		return errors.Wrap(err, common.UnknownModelError(modelUUID))
 	}
-	return args.modelUUID, nil
+	return nil
+}
+
+func getMigrationRedirectInfo(ssState *state.State, modelUUID string) (*params.RedirectInfoResult, error) {
+	modelTag := names.NewModelTag(modelUUID)
+	migration, err := ssState.LatestMigrationFor(modelTag)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if migration != nil {
+		phase, err := migration.Phase()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if phase.HasSucceeded() {
+			return redirectInfoFromMigration(migration)
+		}
+	}
+	return nil, nil
+
+}
+
+func redirectInfoFromMigration(migration state.ModelMigration) (*params.RedirectInfoResult, error) {
+	target, err := migration.TargetInfo()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	netHostPorts, err := network.ParseHostPorts(target.Addrs...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := params.RedirectInfoResult{
+		Servers: [][]params.HostPort{params.FromNetworkHostPorts(netHostPorts)},
+		CACert:  target.CACert,
+	}
+	return &result, nil
 }

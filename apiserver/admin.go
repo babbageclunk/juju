@@ -24,8 +24,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type adminAPIFactory func(*Server, *apiHandler, observer.Observer) interface{}
-
 // admin is the only object that unlogged-in clients can access. It holds any
 // methods that are needed to log in.
 type admin struct {

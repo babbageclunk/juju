@@ -709,9 +709,15 @@ func checkTargetController(st *State, targetControllerTag names.ControllerTag) e
 // LatestMigration returns the most recent ModelMigration for a model
 // (if any).
 func (st *State) LatestMigration() (ModelMigration, error) {
+	return st.LatestMigrationFor(st.ModelTag())
+}
+
+// LatestMigration returns the most recent ModelMigration (if any) for
+// the specified model.
+func (st *State) LatestMigrationFor(modelTag names.ModelTag) (ModelMigration, error) {
 	migColl, closer := st.getCollection(migrationsC)
 	defer closer()
-	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
+	query := migColl.Find(bson.M{"model-uuid": modelTag.Id()})
 	query = query.Sort("-_id").Limit(1)
 	mig, err := st.migrationFromQuery(query)
 	if err != nil {
@@ -725,7 +731,7 @@ func (st *State) LatestMigration() (ModelMigration, error) {
 		return nil, errors.Trace(err)
 	}
 	if phase == migration.DONE {
-		model, err := st.Model()
+		model, err := st.GetModel(modelTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

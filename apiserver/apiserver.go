@@ -40,29 +40,33 @@ var logger = loggo.GetLogger("juju.apiserver")
 // accept
 const loginRateLimit = 10
 
+type adminAPIFactory func(*Server, *apiHandler, observer.Observer) interface{}
+type redirectAPIFactory func(*Server, *apiHandler, observer.Observer, params.RedirectInfoResult) interface{}
+
 // Server holds the server side of the API.
 type Server struct {
-	tomb              tomb.Tomb
-	clock             clock.Clock
-	pingClock         clock.Clock
-	wg                sync.WaitGroup
-	state             *state.State
-	statePool         *state.StatePool
-	lis               net.Listener
-	tag               names.Tag
-	dataDir           string
-	logDir            string
-	limiter           utils.Limiter
-	validator         LoginValidator
-	adminAPIFactories map[int]adminAPIFactory
-	modelUUID         string
-	authCtxt          *authContext
-	lastConnectionID  uint64
-	newObserver       observer.ObserverFactory
-	connCount         int64
-	certChanged       <-chan params.StateServingInfo
-	tlsConfig         *tls.Config
-	allowModelAccess  bool
+	tomb                 tomb.Tomb
+	clock                clock.Clock
+	pingClock            clock.Clock
+	wg                   sync.WaitGroup
+	state                *state.State
+	statePool            *state.StatePool
+	lis                  net.Listener
+	tag                  names.Tag
+	dataDir              string
+	logDir               string
+	limiter              utils.Limiter
+	validator            LoginValidator
+	adminAPIFactories    map[int]adminAPIFactory
+	redirectAPIFactories map[int]redirectAPIFactory
+	modelUUID            string
+	authCtxt             *authContext
+	lastConnectionID     uint64
+	newObserver          observer.ObserverFactory
+	connCount            int64
+	certChanged          <-chan params.StateServingInfo
+	tlsConfig            *tls.Config
+	allowModelAccess     bool
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -177,6 +181,9 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		validator:   cfg.Validator,
 		adminAPIFactories: map[int]adminAPIFactory{
 			3: newAdminAPIV3,
+		},
+		redirectAPIFactories: map[int]redirectAPIFactory{
+			3: newRedirectAdminAPI,
 		},
 		certChanged:      cfg.CertChanged,
 		allowModelAccess: cfg.AllowModelAccess,
@@ -561,33 +568,52 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 
 	conn := rpc.NewConn(codec, apiObserver)
 
-	// Note that we don't overwrite modelUUID here because
-	// newAPIHandler treats an empty modelUUID as signifying
-	// the API version used.
-	resolvedModelUUID, err := validateModelUUID(validateArgs{
+	var (
+		st       *state.State
+		h        *apiHandler
+		redirect *params.RedirectInfoResult
+	)
+	overrideModelUUID, err := ensureValidModelUUID(validateArgs{
 		statePool: srv.statePool,
 		modelUUID: modelUUID,
 	})
-	var (
-		st *state.State
-		h  *apiHandler
-	)
-	if err == nil {
-		st, err = srv.statePool.Get(resolvedModelUUID)
+	// Note that we don't overwrite modelUUID here because
+	// newAPIHandler treats an empty modelUUID as signifying
+	// the API version used.
+	resolvedModelUUID := modelUUID
+	if overrideModelUUID != "" {
+		resolvedModelUUID = overrideModelUUID
 	}
 
 	if err == nil {
+		redirect, err = getMigrationRedirectInfo(srv.state, resolvedModelUUID)
+	}
+
+	if err == nil {
+		err = checkModelExists(srv.state, resolvedModelUUID)
+	}
+
+	if err == nil && redirect == nil {
+		st, err = srv.statePool.Get(resolvedModelUUID)
 		defer func() {
 			err := srv.statePool.Release(resolvedModelUUID)
 			if err != nil {
 				logger.Errorf("error releasing %v back into the state pool:", err)
 			}
 		}()
+	}
+
+	if err == nil {
 		h, err = newAPIHandler(srv, st, conn, modelUUID, host)
 	}
 
 	if err != nil {
 		conn.ServeRoot(&errRoot{errors.Trace(err)}, serverError)
+	} else if redirect != nil {
+		adminAPIs := map[int]interface{}{
+			3: newRedirectAdminAPI(srv, h, apiObserver, *redirect),
+		}
+		conn.ServeRoot(newAnonRoot(h, adminAPIs), serverError)
 	} else {
 		adminAPIs := make(map[int]interface{})
 		for apiVersion, factory := range srv.adminAPIFactories {
