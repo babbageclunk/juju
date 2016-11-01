@@ -1189,7 +1189,7 @@ func (s *migrationSuite) TestMachineLoginNoRedirect(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *migrationSuite) TestNoModelRedirects(c *gc.C) {
+func (s *migrationSuite) TestNoModelUserLoginRedirects(c *gc.C) {
 	modelState := s.Factory.MakeModel(c, nil)
 	modelFactory := factory.NewFactory(modelState)
 	s.makeSuccessfulMigration(c, modelState)
@@ -1209,7 +1209,10 @@ func (s *migrationSuite) TestNoModelRedirects(c *gc.C) {
 	}
 	err = conn.APICall("Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.Satisfies, params.IsRedirect)
-	c.Fatalf("oops")
+}
+
+func (s *migrationSuite) TestNoModelMachineLoginErrors(c *gc.C) {
+	c.Fatalf("writeme")
 }
 
 func (s *migrationSuite) TestRedirectInfo(c *gc.C) {
