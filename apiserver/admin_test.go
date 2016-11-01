@@ -27,11 +27,14 @@ import (
 	"github.com/juju/juju/apiserver/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -1142,4 +1145,114 @@ func (s *migrationSuite) TestImportingModel(c *gc.C) {
 	defer machineConn.Close()
 	_, err = apimachiner.NewState(machineConn).Machine(m.MachineTag())
 	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *migrationSuite) TestLoginRedirects(c *gc.C) {
+	modelState := s.Factory.MakeModel(c, nil)
+	defer modelState.Close()
+	modelFactory := factory.NewFactory(modelState)
+	s.makeSuccessfulMigration(c, modelState)
+	password := "shhh..."
+	user := modelFactory.MakeUser(c, &factory.UserParams{
+		Password: password,
+	})
+	conn := s.openAPIWithoutLogin(c, s.apiInfoFor(c, modelState.ModelUUID()))
+	var result params.LoginResult
+	request := &params.LoginRequest{
+		AuthTag:     user.Tag().String(),
+		Credentials: "wrong password",
+	}
+	err := conn.APICall("Admin", 3, "", "Login", request, &result)
+	c.Assert(err, jc.Satisfies, params.IsRedirect)
+}
+
+func (s *migrationSuite) TestMachineLoginNoRedirect(c *gc.C) {
+	modelState := s.Factory.MakeModel(c, nil)
+	defer modelState.Close()
+	modelFactory := factory.NewFactory(modelState)
+	// 25 chars long - 18 bytes base64 encoded.
+	password := "shhh....................."
+	machine := modelFactory.MakeMachine(c, &factory.MachineParams{
+		Password: password,
+		Nonce:    "no-offenc",
+	})
+	s.makeSuccessfulMigration(c, modelState)
+	conn := s.openAPIWithoutLogin(c, s.apiInfoFor(c, modelState.ModelUUID()))
+	var result params.LoginResult
+	request := &params.LoginRequest{
+		AuthTag:     machine.Tag().String(),
+		Credentials: password,
+		Nonce:       "no-offenc",
+	}
+	err := conn.APICall("Admin", 3, "", "Login", request, &result)
+	// No redirect for machine agents.
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *migrationSuite) TestNoModelRedirects(c *gc.C) {
+	modelState := s.Factory.MakeModel(c, nil)
+	modelFactory := factory.NewFactory(modelState)
+	s.makeSuccessfulMigration(c, modelState)
+	password := "shhh..."
+	user := modelFactory.MakeUser(c, &factory.UserParams{
+		Password: password,
+	})
+	err := modelState.RemoveExportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+	modelState.Close()
+
+	conn := s.openAPIWithoutLogin(c, s.apiInfoFor(c, modelState.ModelUUID()))
+	var result params.LoginResult
+	request := &params.LoginRequest{
+		AuthTag:     user.Tag().String(),
+		Credentials: password,
+	}
+	err = conn.APICall("Admin", 3, "", "Login", request, &result)
+	c.Assert(err, jc.Satisfies, params.IsRedirect)
+	c.Fatalf("oops")
+}
+
+func (s *migrationSuite) TestRedirectInfo(c *gc.C) {
+	c.Fatalf("writeme")
+}
+
+func (s *migrationSuite) TestRedirectInfoWithoutSuccessfulMigration(c *gc.C) {
+	c.Fatalf("writeme")
+}
+
+func (s *migrationSuite) apiInfoFor(c *gc.C, modelUUID string) *api.Info {
+	apiInfo, err := environs.APIInfo(
+		s.ControllerConfig.ControllerUUID(),
+		modelUUID,
+		testing.CACert,
+		s.ControllerConfig.APIPort(),
+		s.Environ,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo.Tag = s.AdminUserTag(c)
+	apiInfo.Password = "dummy-secret"
+	apiInfo.ModelTag = names.NewModelTag(modelUUID)
+	return apiInfo
+}
+
+func (s *migrationSuite) makeSuccessfulMigration(c *gc.C, st *state.State) {
+	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
+	spec := state.MigrationSpec{
+		InitiatedBy: names.NewUserTag("admin"),
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: targetControllerTag,
+			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
+			CACert:        "cert",
+			AuthTag:       names.NewUserTag("user"),
+			Password:      "password",
+		},
+	}
+	mig, err := st.CreateMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, name := range []string{"IMPORT", "VALIDATION", "SUCCESS", "LOGTRANSFER", "REAP", "DONE"} {
+		phase, ok := migration.ParsePhase(name)
+		c.Assert(ok, jc.IsTrue)
+		err = mig.SetPhase(phase)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
