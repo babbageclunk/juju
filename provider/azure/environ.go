@@ -1154,6 +1154,11 @@ func isControllerDeployment(deployment resources.DeploymentExtended) bool {
 	return false
 }
 
+// MoveInstancesToController is part of the environs.Environ interface.
+func (env *azureEnviron) MoveInstancesToController([]instance.Id, string) error {
+	panic("writeme")
+}
+
 // Destroy is specified in the Environ interface.
 func (env *azureEnviron) Destroy() error {
 	logger.Debugf("destroying model %q", env.envName)

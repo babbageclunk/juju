@@ -1326,6 +1326,11 @@ func (e *Environ) allInstances(tagFilter tagValue, updateFloatingIPAddresses boo
 	return insts, nil
 }
 
+// MoveInstancesToController is part of the environs.Environ interface.
+func (e *Environ) MoveInstancesToController([]instance.Id, string) error {
+	panic("writeme")
+}
+
 func (e *Environ) Destroy() error {
 	err := common.Destroy(e)
 	if err != nil {

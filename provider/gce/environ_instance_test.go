@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
@@ -199,4 +200,31 @@ func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 1)
 
+}
+
+func (s *environInstSuite) TestMoveInstancesToController(c *gc.C) {
+	insts := []instance.Instance{
+		s.NewInstance(c, "father"),
+		s.NewInstance(c, "john"),
+		s.NewInstance(c, "misty"),
+	}
+	ids := make([]instance.Id, len(insts))
+	for i, inst := range insts {
+		ids[i] = inst.Id()
+	}
+
+	err := s.Env.MoveInstancesToController(ids[1:], "other-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+
+	instances, err := s.Env.Instances(ids)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertJujuController(c, instances[0], s.ControllerUUID)
+	assertJujuController(c, instances[1], "other-uuid")
+	assertJujuController(c, instances[2], "other-uuid")
+}
+
+func assertJujuController(c *gc.C, inst instance.Instance, controllerUUID string) {
+	ginst := gce.ExposeInstBase(inst)
+	c.Assert(ginst.Metadata()[tags.JujuController], gc.Equals, controllerUUID)
 }

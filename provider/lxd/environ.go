@@ -172,6 +172,11 @@ func (env *environ) Destroy() error {
 	return nil
 }
 
+// MoveInstancesToController is part of the environs.Environ interface.
+func (env *environ) MoveInstancesToController([]instance.Id, string) error {
+	panic("writeme")
+}
+
 // DestroyController implements the Environ interface.
 func (env *environ) DestroyController(controllerUUID string) error {
 	if err := env.Destroy(); err != nil {

@@ -1041,6 +1041,11 @@ func (e *environ) allInstances(filter *ec2.Filter) ([]instance.Instance, error) 
 	return insts, nil
 }
 
+// MoveInstancesToController is part of the environs.Environ interface.
+func (e *environ) MoveInstancesToController([]instance.Id, string) error {
+	panic("writeme")
+}
+
 // Destroy is part of the environs.Environ interface.
 func (e *environ) Destroy() error {
 	if err := common.Destroy(e); err != nil {

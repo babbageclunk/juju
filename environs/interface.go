@@ -267,6 +267,11 @@ type Environ interface {
 	// then ErrNotBootstrapped should be returned instead.
 	ControllerInstances(controllerUUID string) ([]instance.Id, error)
 
+	// MoveInstancesToController updates the metadata for all of the
+	// instances to indicate that they are now managed by the
+	// specified controller.
+	MoveInstancesToController(ids []instance.Id, controllerUUID string) error
+
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment. Note that on some providers,
 	// very recently started instances may not be destroyed

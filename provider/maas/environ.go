@@ -2079,6 +2079,11 @@ func (env *maasEnviron) Storage() storage.Storage {
 	return env.storageUnlocked
 }
 
+// MoveInstancesToController is part of the environs.Environ interface.
+func (environ *maasEnviron) MoveInstancesToController([]instance.Id, string) error {
+	panic("writeme")
+}
+
 func (environ *maasEnviron) Destroy() error {
 	if err := common.Destroy(environ); err != nil {
 		return errors.Trace(err)
