@@ -208,6 +208,7 @@ func (s *environInstSuite) TestMoveInstancesToController(c *gc.C) {
 		s.NewInstance(c, "john"),
 		s.NewInstance(c, "misty"),
 	}
+	s.FakeEnviron.Insts = insts
 	ids := make([]instance.Id, len(insts))
 	for i, inst := range insts {
 		ids[i] = inst.Id()

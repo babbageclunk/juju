@@ -123,10 +123,12 @@ func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, e
 }
 
 // MoveInstancesToController is part of the environs.Environ interface.
-func (env *environ) MoveInstancesToController([]instance.Id, string) error {
-	//instances, err := env.gceInstances()
-
-	return nil
+func (env *environ) MoveInstancesToController(ids []instance.Id, controllerUUID string) error {
+	stringIds := make([]string, len(ids))
+	for i, id := range ids {
+		stringIds[i] = string(id)
+	}
+	return errors.Trace(env.gce.UpdateMetadata(tags.JujuController, controllerUUID, stringIds...))
 }
 
 // TODO(ericsnow) Turn into an interface.
