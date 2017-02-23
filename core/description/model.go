@@ -674,7 +674,7 @@ func (m *model) setStoragePools(poolList []*storagepool) {
 func (m *model) RemoteApplications() []RemoteApplication {
 	var result []RemoteApplication
 	for _, app := range m.RemoteApplications_.RemoteApplications {
-		m.RemoteApplications_.RemoteApplications = append(m.RemoteApplications_.RemoteApplications, app)
+		result = append(result, app)
 	}
 	return result
 }
