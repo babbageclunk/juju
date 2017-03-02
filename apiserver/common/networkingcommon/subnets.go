@@ -55,7 +55,7 @@ func NewAddSubnetsCache(api NetworkBacking) *addSubnetsCache {
 // up in the cache (or populates the cache if empty).
 func (cache *addSubnetsCache) validateSpace(spaceTag string) (*names.SpaceTag, error) {
 	if spaceTag == "" {
-		return nil, errors.Errorf("SpaceTag is required")
+		return nil, nil
 	}
 	tag, err := names.ParseSpaceTag(spaceTag)
 	if err != nil {

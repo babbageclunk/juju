@@ -511,7 +511,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 			`multiple subnets with CIDR "10.10.0.0/24": ` +
 				`retry using ProviderId from: "sn-deadbeef", "sn-zadf00d"`, nil,
 		},
-		{"SpaceTag is required", nil},
+		{"Zones cannot be discovered from the provider and must be set", nil},
 		{`subnet with CIDR "invalid" and ProviderId "sn-invalid": invalid CIDR`, nil},
 		{`subnet with ProviderId "sn-empty": empty CIDR`, nil},
 		{

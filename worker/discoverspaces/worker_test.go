@@ -4,6 +4,7 @@
 package discoverspaces_test
 
 import (
+	"sort"
 	"sync/atomic"
 	"time"
 
@@ -134,8 +135,8 @@ func (s *WorkerSuite) TestWorkerSupportsNetworkingFalse(c *gc.C) {
 	s.unlockCheck(c, s.assertDiscoveredNoSpaces)
 }
 
-func (s *WorkerSuite) TestWorkerSupportsSpaceDiscoveryFalse(c *gc.C) {
-	s.unlockCheck(c, s.assertDiscoveredNoSpaces)
+func (s *WorkerSuite) TestWorkerDiscoversSubnetsIfNoSpaceDiscovery(c *gc.C) {
+	s.unlockCheck(c, s.assertDiscoveredSubnetsOnly)
 }
 
 func (s *WorkerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
@@ -287,4 +288,52 @@ func (s *WorkerSuite) assertDiscoveredSpaces(c *gc.C) {
 func (s *WorkerSuite) assertNumCalls(c *gc.C, expectedNumCreateSpaceCalls, expectedNumAddSubnetsCalls int) {
 	c.Check(atomic.LoadUint32(&s.numCreateSpaceCalls), gc.Equals, uint32(expectedNumCreateSpaceCalls))
 	c.Check(atomic.LoadUint32(&s.numAddSubnetsCalls), gc.Equals, uint32(expectedNumAddSubnetsCalls))
+}
+
+type byProviderId []*state.Subnet
+
+func (p byProviderId) Len() int           { return len(p) }
+func (p byProviderId) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p byProviderId) Less(i, j int) bool { return p[i].ProviderId() < p[j].ProviderId() }
+
+func (s *WorkerSuite) assertDiscoveredSubnetsOnly(c *gc.C) {
+	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaces, gc.HasLen, 0)
+
+	subnets, err := s.State.AllSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets, gc.HasLen, 5)
+
+	expectedSubnets := []network.SubnetInfo{{
+		ProviderId:        network.Id("1"),
+		CIDR:              "192.168.1.0/24",
+		AvailabilityZones: []string{"zone1"},
+	}, {
+		ProviderId:        network.Id("2"),
+		CIDR:              "192.168.2.0/24",
+		AvailabilityZones: []string{"zone1"},
+	}, {
+		ProviderId:        network.Id("3"),
+		CIDR:              "192.168.3.0/24",
+		AvailabilityZones: []string{"zone1"},
+	}, {
+		ProviderId:        network.Id("4"),
+		CIDR:              "192.168.4.0/24",
+		AvailabilityZones: []string{"zone1"},
+	}, {
+		ProviderId:        network.Id("5"),
+		CIDR:              "192.168.5.0/24",
+		AvailabilityZones: []string{"zone1"},
+	}}
+	sort.Sort(byProviderId(subnets))
+
+	for i, actual := range subnets {
+		c.Logf("%v", i)
+		expected := expectedSubnets[i]
+		c.Check(actual.ProviderId(), gc.Equals, expected.ProviderId)
+		c.Check(actual.CIDR(), gc.Equals, expected.CIDR)
+		c.Check([]string{actual.AvailabilityZone()}, gc.DeepEquals, expected.AvailabilityZones)
+		c.Check(actual.SpaceName(), gc.Equals, "")
+	}
 }
