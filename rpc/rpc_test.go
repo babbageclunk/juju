@@ -1235,7 +1235,7 @@ func newRPCClientServer(
 		}
 		rpcConn := rpc.NewConn(NewJSONCodec(conn, role), serverNotifier)
 		if custroot, ok := root.(*CustomRoot); ok {
-			rpcConn.ServeRoot(custroot, tfErr)
+			rpcConn.ServeRoot(custroot, nil, tfErr)
 			custroot.root.conn = rpcConn
 		} else {
 			rpcConn.Serve(root, tfErr)

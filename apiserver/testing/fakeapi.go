@@ -83,7 +83,7 @@ func (srv *Server) serveConn(ctx context.Context, wsConn *websocket.Conn, modelU
 	root := allVersions{
 		rpcreflect.ValueOf(reflect.ValueOf(srv.newRoot(modelUUID))),
 	}
-	conn.ServeRoot(root, nil)
+	conn.ServeRoot(root, nil, nil)
 	conn.Start(ctx)
 	<-conn.Dead()
 	conn.Close()
