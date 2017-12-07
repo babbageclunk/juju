@@ -456,7 +456,8 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		body = arg.Interface()
 	}
 	if err := recorder.ServerRequest(hdr, body); err != nil {
-		return errors.Trace(err)
+		logger.Errorf("error recording request %+v with arg %+v: %T %+v", req, arg, err, err)
+		return conn.writeErrorResponse(hdr, req.transformErrors(err), recorder)
 	}
 	conn.mutex.Lock()
 	closing := conn.closing
@@ -486,7 +487,7 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, recorder Recorde
 	}
 	hdr.Error = err.Error()
 	if err := recorder.ServerReply(reqHdr.Request, hdr, struct{}{}); err != nil {
-		return errors.Trace(err)
+		logger.Errorf("error recording reply %+v: %T %+v", hdr, err, err)
 	}
 
 	return conn.codec.WriteMessage(hdr, struct{}{})
@@ -570,7 +571,7 @@ func (conn *Conn) runRequest(
 			rvi = struct{}{}
 		}
 		if err := recorder.ServerReply(req.hdr.Request, hdr, rvi); err != nil {
-			logger.Errorf("error logging response: %T %+v", err, err)
+			logger.Errorf("error recording reply %+v: %T %+v", hdr, err, err)
 		}
 		conn.sending.Lock()
 		err = conn.codec.WriteMessage(hdr, rvi)

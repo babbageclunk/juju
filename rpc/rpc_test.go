@@ -1191,6 +1191,27 @@ func (*rpcSuite) TestConnectionContextCloseServer(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "context canceled")
 }
 
+func (s *rpcSuite) TestRecorderErrorPreventsRequest(c *gc.C) {
+	root := &Root{
+		simple: make(map[string]*SimpleMethods),
+	}
+	root.simple["a0"] = &SimpleMethods{
+		root: root,
+		id:   "a0",
+	}
+	client, server, srvDone, notifier := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
+	notifier.errors = []error{errors.Errorf("explodo"), errors.Errorf("pyronica")}
+
+	err := client.Call(rpc.Request{"SimpleMethods", 0, "a0", "Call0r0"}, nil, nil)
+	c.Assert(err, gc.ErrorMatches, "explodo")
+
+	err = server.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(root.calls, gc.HasLen, 0)
+}
+
 func chanReadError(c *gc.C, ch <-chan error, what string) error {
 	select {
 	case e := <-ch:
@@ -1358,6 +1379,7 @@ type notifier struct {
 	mu             sync.Mutex
 	serverRequests []requestEvent
 	serverReplies  []replyEvent
+	errors         []error
 }
 
 func (n *notifier) reset() {
@@ -1365,6 +1387,16 @@ func (n *notifier) reset() {
 	defer n.mu.Unlock()
 	n.serverRequests = nil
 	n.serverReplies = nil
+	n.errors = nil
+}
+
+func (n *notifier) nextErr() error {
+	if len(n.errors) == 0 {
+		return nil
+	}
+	err := n.errors[0]
+	n.errors = n.errors[1:]
+	return err
 }
 
 func (n *notifier) ServerRequest(hdr *rpc.Header, body interface{}) error {
@@ -1374,7 +1406,8 @@ func (n *notifier) ServerRequest(hdr *rpc.Header, body interface{}) error {
 		hdr:  *hdr,
 		body: body,
 	})
-	return nil
+
+	return n.nextErr()
 }
 
 func (n *notifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) error {
@@ -1385,5 +1418,5 @@ func (n *notifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{
 		hdr:  *hdr,
 		body: body,
 	})
-	return nil
+	return n.nextErr()
 }
