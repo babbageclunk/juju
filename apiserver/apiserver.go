@@ -798,7 +798,8 @@ func (srv *Server) serveConn(
 	host string,
 ) error {
 	codec := jsoncodec.NewWebsocket(wsConn.Conn)
-	conn := rpc.NewConn(codec, observer.NewRecorderFactory(apiObserver, nil))
+	recorderFactory := observer.NewRecorderFactory(apiObserver, nil)
+	conn := rpc.NewConn(codec, recorderFactory)
 
 	// Note that we don't overwrite modelUUID here because
 	// newAPIHandler treats an empty modelUUID as signifying
@@ -822,7 +823,7 @@ func (srv *Server) serveConn(
 	}
 
 	if err != nil {
-		conn.ServeRoot(&errRoot{errors.Trace(err)}, nil, serverError)
+		conn.ServeRoot(&errRoot{errors.Trace(err)}, recorderFactory, serverError)
 	} else {
 		// Set up the admin apis used to accept logins and direct
 		// requests to the relevant business facade.
@@ -832,7 +833,7 @@ func (srv *Server) serveConn(
 		for apiVersion, factory := range adminAPIFactories {
 			adminAPIs[apiVersion] = factory(srv, h, apiObserver)
 		}
-		conn.ServeRoot(newAdminRoot(h, adminAPIs), nil, serverError)
+		conn.ServeRoot(newAdminRoot(h, adminAPIs), recorderFactory, serverError)
 	}
 	conn.Start(ctx)
 	select {

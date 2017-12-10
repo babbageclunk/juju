@@ -140,7 +140,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 	if auditConfig.Enabled {
 		serverConfig.AuditLog = auditlog.NewLogFile(
-			logDir, auditConfig.MaxSize, auditConfig.MaxBackups)
+			logDir, auditConfig.MaxSizeMB, auditConfig.MaxBackups)
 	}
 
 	listener, err := net.Listen("tcp", listenAddr)
