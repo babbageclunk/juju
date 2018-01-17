@@ -43,7 +43,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -642,54 +641,6 @@ func (s *MachineSuite) TestManageModelServesAPI(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Life(), gc.Equals, params.Alive)
 	})
-}
-
-func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
-	password := "shhh..."
-	user := s.Factory.MakeUser(c, &factory.UserParams{
-		Password: password,
-	})
-
-	s.assertJobWithState(c, state.JobManageModel, func(conf agent.Config, agentState *state.State) {
-		logPath := filepath.Join(conf.LogDir(), "audit.log")
-
-		apiInfo, ok := conf.APIInfo()
-		c.Assert(ok, jc.IsTrue)
-		apiInfo.Tag = user.Tag()
-		apiInfo.Password = password
-		st, err := api.Open(apiInfo, fastDialOpts)
-		c.Assert(err, jc.ErrorIsNil)
-		defer st.Close()
-
-		client := st.Client()
-		_, err = client.AddMachines([]params.AddMachineParams{{
-			Jobs: []multiwatcher.MachineJob{"JobHostUnits"},
-		}})
-		c.Assert(err, jc.ErrorIsNil)
-
-		// Check that there's a call to Client.AddMachinesV2 in the log.
-		records := readAuditLog(c, logPath)
-		c.Assert(records, gc.HasLen, 3)
-		c.Assert(records[1].Request, gc.NotNil)
-		c.Assert(records[1].Request.Facade, gc.Equals, "Client")
-		c.Assert(records[1].Request.Method, gc.Equals, "AddMachinesV2")
-	})
-}
-
-func readAuditLog(c *gc.C, logPath string) []auditlog.Record {
-	file, err := os.Open(logPath)
-	c.Assert(err, jc.ErrorIsNil)
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	var results []auditlog.Record
-	for scanner.Scan() {
-		var record auditlog.Record
-		err := json.Unmarshal(scanner.Bytes(), &record)
-		c.Assert(err, jc.ErrorIsNil)
-		results = append(results, record)
-	}
-	return results
 }
 
 func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {

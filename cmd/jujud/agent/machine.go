@@ -458,7 +458,7 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(*cmd.Context) error {
-
+	logger.Criticalf("Run start")
 	defer a.tomb.Done()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
@@ -513,6 +513,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
+		logger.Criticalf("engineCreator start")
 		config := dependency.EngineConfig{
 			IsFatal:     cmdutil.IsFatal,
 			WorstError:  cmdutil.MoreImportantError,
@@ -1044,6 +1045,7 @@ func (a *MachineAgent) startStateWorkers(
 	st *state.State,
 	dependencyReporter dependency.Reporter,
 ) (worker.Worker, error) {
+	logger.Criticalf("startStateWorkers begin")
 	agentConfig := a.CurrentConfig()
 
 	m, err := getMachine(st, agentConfig.Tag())
@@ -1129,6 +1131,7 @@ func (a *MachineAgent) startStateWorkers(
 				)
 				return st, err
 			}
+			logger.Criticalf("startStateWorkers: starting apiserver")
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(
 				stateOpener,
 				certChangedChan,
@@ -1232,15 +1235,18 @@ func (a *MachineAgent) newAPIserverWorker(
 	certChanged chan params.StateServingInfo,
 	dependencyReporter dependency.Reporter,
 ) (worker.Worker, error) {
+	logger.Criticalf("newAPIServerWorker starting")
 	agentConfig := a.CurrentConfig()
 	// If the configuration does not have the required information,
 	// it is currently not a recoverable error, so we kill the whole
 	// agent, potentially enabling human intervention to fix
 	// the agent's configuration file.
+	logger.Criticalf("getting stateservinginfo")
 	info, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return nil, &cmdutil.FatalError{"StateServingInfo not available and we need it"}
 	}
+	logger.Criticalf("got it")
 	cert := info.Cert
 	key := info.PrivateKey
 
@@ -1262,6 +1268,7 @@ func (a *MachineAgent) newAPIserverWorker(
 		return nil, errors.Annotate(err, "cannot fetch the controller config")
 	}
 
+	logger.Criticalf("got controller config")
 	newObserver, err := newObserverFn(
 		controllerConfig,
 		clock.WallClock,
@@ -1314,6 +1321,7 @@ func (a *MachineAgent) newAPIserverWorker(
 		AuditLogConfig:                auditConfig,
 	}
 
+	logger.Criticalf("starting API server, auditing enabled? %v", auditConfig.Enabled)
 	if auditConfig.Enabled {
 		serverConfig.AuditLog = auditlog.NewLogFile(
 			logDir, auditConfig.MaxSizeMB, auditConfig.MaxBackups)
