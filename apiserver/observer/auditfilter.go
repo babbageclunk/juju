@@ -20,6 +20,7 @@ import (
 type bufferedLog struct {
 	mu          sync.Mutex
 	buffer      []interface{}
+	dropped     map[uint64]bool
 	dest        auditlog.AuditLog
 	interesting func(auditlog.Request) bool
 }
@@ -29,6 +30,7 @@ type bufferedLog struct {
 // request that satisfies the filter function passed in.
 func NewAuditLogFilter(log auditlog.AuditLog, filter func(auditlog.Request) bool) auditlog.AuditLog {
 	return &bufferedLog{
+		dropped:     make(map[uint64]bool),
 		dest:        log,
 		interesting: filter,
 	}
@@ -47,12 +49,16 @@ func (l *bufferedLog) AddConversation(c auditlog.Conversation) error {
 // AddRequest implements auditlog.AuditLog.
 func (l *bufferedLog) AddRequest(r auditlog.Request) error {
 	l.mu.Lock()
+	if !l.interesting(r) {
+		// Make sure we drop the response as well.
+		l.dropped[r.RequestID] = true
+		l.mu.Unlock()
+		return nil
+	}
 	if len(l.buffer) > 0 {
 		l.deferMessage(r)
 		var err error
-		if l.interesting(r) {
-			err = l.flush()
-		}
+		err = l.flush()
 		l.mu.Unlock()
 		return err
 	}
@@ -65,14 +71,11 @@ func (l *bufferedLog) AddRequest(r auditlog.Request) error {
 // AddResponse implements auditlog.AuditLog.
 func (l *bufferedLog) AddResponse(r auditlog.ResponseErrors) error {
 	l.mu.Lock()
-	if len(l.buffer) > 0 {
-		l.deferMessage(r)
-		l.mu.Unlock()
+	_, dropResponse := l.dropped[r.RequestID]
+	l.mu.Unlock()
+	if dropResponse {
 		return nil
 	}
-	l.mu.Unlock()
-	// We've already flushed messages, forward this on
-	// immediately.
 	return l.dest.AddResponse(r)
 }
 

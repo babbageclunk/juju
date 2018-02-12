@@ -34,45 +34,37 @@ func (s *auditFilterSuite) TestFiltersUninterestingConversations(c *gc.C) {
 	// Nothing written out yet.
 	target.CheckCallNames(c)
 
-	err = log.AddRequest(auditlog.Request{Method: "ListBuckets"})
+	err = log.AddRequest(auditlog.Request{RequestID: 1, Method: "ListBuckets"})
 	c.Assert(err, jc.ErrorIsNil)
 	target.CheckCallNames(c)
 
-	err = log.AddResponse(auditlog.ResponseErrors{})
+	err = log.AddResponse(auditlog.ResponseErrors{RequestID: 1})
 	c.Assert(err, jc.ErrorIsNil)
 	target.CheckCallNames(c)
 
-	err = log.AddRequest(auditlog.Request{Method: "ListSpades"})
+	err = log.AddRequest(auditlog.Request{RequestID: 2, Method: "ListSpades"})
 	c.Assert(err, jc.ErrorIsNil)
 	target.CheckCallNames(c)
 
-	err = log.AddRequest(auditlog.Request{Method: "BuildCastle"})
+	err = log.AddResponse(auditlog.ResponseErrors{RequestID: 2})
+	c.Assert(err, jc.ErrorIsNil)
+	target.CheckCallNames(c)
+
+	err = log.AddRequest(auditlog.Request{RequestID: 3, Method: "BuildCastle"})
 	c.Assert(err, jc.ErrorIsNil)
 	// Everything gets written now.
 	target.CheckCallNames(c,
-		"AddConversation", "AddRequest", "AddResponse", "AddRequest",
-		"AddRequest")
+		"AddConversation", "AddRequest")
 	calls := target.Calls()
 	getMethod := func(i int) string {
 		return calls[i].Args[0].(auditlog.Request).Method
 	}
-	requests := []string{getMethod(1), getMethod(3), getMethod(4)}
-	c.Assert(requests, gc.DeepEquals, []string{"ListBuckets", "ListSpades", "BuildCastle"})
+	requests := []string{getMethod(1)}
+	c.Assert(requests, gc.DeepEquals, []string{"BuildCastle"})
 
-	// Subsequent messages are passed through directly even if they're
-	// not inherently interesting.
-	target.ResetCalls()
-
-	err = log.AddRequest(auditlog.Request{Method: "ListTrowels"})
+	err = log.AddResponse(auditlog.ResponseErrors{RequestID: 3})
 	c.Assert(err, jc.ErrorIsNil)
-	target.CheckCallNames(c, "AddRequest")
-
-	calls = target.Calls()
-	c.Assert(getMethod(0), gc.Equals, "ListTrowels")
-
-	err = log.AddResponse(auditlog.ResponseErrors{})
-	c.Assert(err, jc.ErrorIsNil)
-	target.CheckCallNames(c, "AddRequest", "AddResponse")
+	target.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse")
 }
 
 func (s *auditFilterSuite) TestMakeFilter(c *gc.C) {
