@@ -6,6 +6,7 @@ package apiserver
 import (
 	"net/http"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"github.com/juju/utils/clock"
@@ -35,6 +36,7 @@ type ManifoldConfig struct {
 	StateName              string
 	UpgradeGateName        string
 	AuditConfigUpdaterName string
+	RaftName               string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -70,6 +72,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.AuditConfigUpdaterName == "" {
 		return errors.NotValidf("empty AuditConfigUpdaterName")
 	}
+	if config.RaftName == "" {
+		return errors.NotValidf("empty RaftName")
+	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
@@ -102,6 +107,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.StateName,
 			config.UpgradeGateName,
 			config.AuditConfigUpdaterName,
+			config.RaftName,
 		},
 		Start: config.start,
 	}
@@ -152,6 +158,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var r *raft.Raft
+	if err := context.Get(config.RaftName, &r); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Get the state pool after grabbing dependencies so we don't need
 	// to remember to call Done on it if they're not running yet.
 	statePool, err := stTracker.Use()
@@ -173,6 +184,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Authenticator:                     authenticator,
 		GetAuditConfig:                    getAuditConfig,
 		NewServer:                         newServerShim,
+		Raft:                              r,
 	})
 	if err != nil {
 		stTracker.Done()
