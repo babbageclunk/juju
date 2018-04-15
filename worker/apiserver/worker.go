@@ -6,6 +6,7 @@ package apiserver
 import (
 	"net/http"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
@@ -34,6 +35,7 @@ type Config struct {
 	Authenticator                     httpcontext.LocalMacaroonAuthenticator
 	StatePool                         *state.StatePool
 	PrometheusRegisterer              prometheus.Registerer
+	Raft                              *raft.Raft
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	RestoreStatus                     func() state.RestoreStatus
 	UpgradeComplete                   func() bool
@@ -70,6 +72,9 @@ func (config Config) Validate() error {
 	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
+	}
+	if config.Raft == nil {
+		return errors.NotValidf("nil Raft")
 	}
 	if config.RegisterIntrospectionHTTPHandlers == nil {
 		return errors.NotValidf("nil RegisterIntrospectionHTTPHandlers")
@@ -138,6 +143,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          config.PrometheusRegisterer,
 		GetAuditConfig:                config.GetAuditConfig,
+		Raft:                          config.Raft,
 	}
 	return config.NewServer(serverConfig)
 }

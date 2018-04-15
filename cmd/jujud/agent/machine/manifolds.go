@@ -689,6 +689,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeGateName:                   upgradeStepsGateName,
 			RestoreStatusName:                 restoreWatcherName,
 			AuditConfigUpdaterName:            auditConfigUpdaterName,
+			RaftName:                          raftName,
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 			Hub:       config.CentralHub,
