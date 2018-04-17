@@ -6,7 +6,6 @@ package apiserver
 import (
 	"net/http"
 
-	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"github.com/juju/utils/clock"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/raft/raftbox"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -36,7 +36,7 @@ type ManifoldConfig struct {
 	StateName              string
 	UpgradeGateName        string
 	AuditConfigUpdaterName string
-	RaftName               string
+	RaftBoxName            string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -72,8 +72,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.AuditConfigUpdaterName == "" {
 		return errors.NotValidf("empty AuditConfigUpdaterName")
 	}
-	if config.RaftName == "" {
-		return errors.NotValidf("empty RaftName")
+	if config.RaftBoxName == "" {
+		return errors.NotValidf("empty RaftBoxName")
 	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
@@ -107,7 +107,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.StateName,
 			config.UpgradeGateName,
 			config.AuditConfigUpdaterName,
-			config.RaftName,
+			config.RaftBoxName,
 		},
 		Start: config.start,
 	}
@@ -158,8 +158,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var r *raft.Raft
-	if err := context.Get(config.RaftName, &r); err != nil {
+	var raftBox raftbox.Getter
+	if err := context.Get(config.RaftBoxName, &raftBox); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -184,7 +184,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Authenticator:                     authenticator,
 		GetAuditConfig:                    getAuditConfig,
 		NewServer:                         newServerShim,
-		Raft:                              r,
+		RaftBox:                           raftBox,
 	})
 	if err != nil {
 		stTracker.Done()

@@ -19,6 +19,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/raft/raftbox"
 	"github.com/juju/juju/worker/raft/raftutil"
 )
 
@@ -112,6 +113,11 @@ type Config struct {
 	// NoLeaderTimeout, if non-zero, will override the default
 	// timeout for leader contact before restarting.
 	NoLeaderTimeout time.Duration
+
+	// Box is the container the raft needs to be stored in once the
+	// worker is running - it's used to avoid dependency loops between
+	// the API server and raft worker.
+	Box raftbox.Putter
 
 	// ElectionTimeout, if non-zero, will override the default
 	// raft election timeout.
@@ -328,6 +334,11 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	})
 	r.RegisterObserver(observer)
 	defer r.DeregisterObserver(observer)
+
+	// Ensure that the raft object is stored for clients.
+	if w.config.Box != nil {
+		w.config.Box.Put(r)
+	}
 
 	// Every 10 seconds we check whether the no-leader timeout should
 	// trip.
