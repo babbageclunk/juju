@@ -86,6 +86,7 @@ type streamLayer struct {
 
 // Kill implements worker.Worker.
 func (l *streamLayer) Kill() {
+	logger.Debugf("streamLayer stopped by Kill")
 	l.tomb.Kill(nil)
 }
 
@@ -106,6 +107,7 @@ func (l *streamLayer) Accept() (net.Conn, error) {
 
 // Close closes the layer.
 func (l *streamLayer) Close() error {
+	logger.Debugf("streamLayer stopped by Close")
 	l.tomb.Kill(nil)
 	return l.tomb.Wait()
 }
