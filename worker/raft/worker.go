@@ -114,10 +114,15 @@ type Config struct {
 	// timeout for leader contact before restarting.
 	NoLeaderTimeout time.Duration
 
-	// Box is the container the raft needs to be stored in once the
+	// Box is the container the store needs to be put in once the
 	// worker is running - it's used to avoid dependency loops between
 	// the API server and raft worker.
 	Box raftbox.Putter
+
+	// NewStore is a conversion func that takes the running raft and
+	// combines it with the FSM to make a read-write store that
+	// clients can use.
+	NewStore func(*raft.Raft) interface{}
 
 	// ElectionTimeout, if non-zero, will override the default
 	// raft election timeout.
@@ -158,6 +163,9 @@ func (config Config) Validate() error {
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
+	}
+	if config.Box != nil && config.NewStore == nil {
+		return errors.NotValidf("nil NewStore with non-nil Box")
 	}
 	return nil
 }
@@ -340,7 +348,9 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 
 	// Ensure that the raft object is stored for clients.
 	if w.config.Box != nil {
-		w.config.Box.Put(r)
+		if err := w.config.Box.Put(w.config.NewStore(r)); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// Every 10 seconds we check whether the no-leader timeout should

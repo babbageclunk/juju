@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package raft
+package raftlog
 
 import (
 	"encoding/gob"
@@ -11,15 +11,15 @@ import (
 	"github.com/hashicorp/raft"
 )
 
-// SimpleFSM is an implementation of raft.FSM, which simply appends
-// the log data to a slice.
-type SimpleFSM struct {
+// FSM is an implementation of raft.FSM, which simply appends
+// log data to a slice.
+type FSM struct {
 	mu   sync.Mutex
 	logs [][]byte
 }
 
 // Logs returns the accumulated log data.
-func (fsm *SimpleFSM) Logs() [][]byte {
+func (fsm *FSM) Logs() [][]byte {
 	fsm.mu.Lock()
 	defer fsm.mu.Unlock()
 	copied := make([][]byte, len(fsm.logs))
@@ -28,7 +28,7 @@ func (fsm *SimpleFSM) Logs() [][]byte {
 }
 
 // Apply is part of the raft.FSM interface.
-func (fsm *SimpleFSM) Apply(log *raft.Log) interface{} {
+func (fsm *FSM) Apply(log *raft.Log) interface{} {
 	fsm.mu.Lock()
 	defer fsm.mu.Unlock()
 	fsm.logs = append(fsm.logs, log.Data)
@@ -36,7 +36,7 @@ func (fsm *SimpleFSM) Apply(log *raft.Log) interface{} {
 }
 
 // Snapshot is part of the raft.FSM interface.
-func (fsm *SimpleFSM) Snapshot() (raft.FSMSnapshot, error) {
+func (fsm *FSM) Snapshot() (raft.FSMSnapshot, error) {
 	fsm.mu.Lock()
 	defer fsm.mu.Unlock()
 	copied := make([][]byte, len(fsm.logs))
@@ -45,7 +45,7 @@ func (fsm *SimpleFSM) Snapshot() (raft.FSMSnapshot, error) {
 }
 
 // Restore is part of the raft.FSM interface.
-func (fsm *SimpleFSM) Restore(rc io.ReadCloser) error {
+func (fsm *FSM) Restore(rc io.ReadCloser) error {
 	defer rc.Close()
 	var logs [][]byte
 	if err := gob.NewDecoder(rc).Decode(&logs); err != nil {
@@ -58,7 +58,7 @@ func (fsm *SimpleFSM) Restore(rc io.ReadCloser) error {
 }
 
 // SimpleSnapshot is an implementation of raft.FSMSnapshot, returned
-// by the SimpleFSM.Snapshot in this package.
+// by the FSM.Snapshot in this package.
 type SimpleSnapshot struct {
 	logs [][]byte
 	n    int

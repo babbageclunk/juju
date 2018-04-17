@@ -9,14 +9,16 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/hashicorp/raft"
+	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
+
+	"github.com/juju/juju/core/raftlog"
 )
 
 // RaftGetter represents something through which we can get access to
-// the raft node
+// raft stores.
 type RaftGetter interface {
-	Get() <-chan *raft.Raft
+	LogStore() <-chan raftlog.Store
 }
 
 // raftHandler is a simple HTTP handler that lets us add log messages
@@ -28,31 +30,53 @@ type raftHandler struct {
 
 // ServeHTTP implements HTTP.Handler
 func (h *raftHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	store, err := h.getStore()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	switch req.Method {
 	case http.MethodGet:
-		// punting on this for now - would need the fsm to be passed around too.
+		h.doGet(w, store)
 	case http.MethodPut:
-		body, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("couldn't read body: %s", err), http.StatusBadRequest)
-			return
-		}
-
-		var r *raft.Raft
-		select {
-		case <-h.clock.After(50 * time.Millisecond):
-			http.Error(w, "raft not ready yet", http.StatusInternalServerError)
-			return
-		case r = <-h.raftBox.Get():
-		}
-
-		result := r.Apply(body, 0)
-		err = result.Error()
-		if err != nil {
-			http.Error(w, fmt.Sprintf("apply error: %s", err), http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "records: %d, index: %d\n", result.Response(), result.Index())
+		h.doPut(w, req, store)
 	}
+}
+
+func (h *raftHandler) getStore() (raftlog.Store, error) {
+	select {
+	case <-h.clock.After(50 * time.Millisecond):
+		return nil, errors.New("raftlog store not ready yet")
+	case store := <-h.raftBox.LogStore():
+		return store, nil
+	}
+}
+
+func (h *raftHandler) doGet(w http.ResponseWriter, store raftlog.Store) error {
+	for _, line := range store.Logs() {
+		_, err := w.Write(line)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		fmt.Fprintf(w, "\n")
+	}
+	return nil
+}
+
+func (h *raftHandler) doPut(w http.ResponseWriter, req *http.Request, store raftlog.Store) {
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		logger.Errorf("raftHandler: %s", err)
+		http.Error(w, fmt.Sprintf("couldn't read body: %s", err), http.StatusBadRequest)
+		return
+	}
+
+	err = store.Append(body)
+	if err != nil {
+		logger.Errorf("raftHandler: %s", err)
+		http.Error(w, fmt.Sprintf("append error: %s", err), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "records: %d\n", store.Count())
 }
