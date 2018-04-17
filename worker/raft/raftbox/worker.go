@@ -4,11 +4,11 @@
 package raftbox
 
 import (
-	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/core/raftlog"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -26,8 +26,8 @@ var logger = loggo.GetLogger("juju.worker.raft.raftbox")
 // receives a request that requires raft it can get it from the box.
 func New() (worker.Worker, error) {
 	w := &box{
-		raftIn:  make(chan *raft.Raft),
-		raftOut: make(chan *raft.Raft),
+		storeIn:  make(chan raftlog.Store),
+		storeOut: make(chan raftlog.Store),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -39,23 +39,23 @@ func New() (worker.Worker, error) {
 }
 
 type box struct {
-	catacomb        catacomb.Catacomb
-	raftIn, raftOut chan *raft.Raft
+	catacomb          catacomb.Catacomb
+	storeIn, storeOut chan raftlog.Store
 }
 
 func (b *box) loop() error {
 	var (
-		out chan *raft.Raft
-		r   *raft.Raft
+		out   chan raftlog.Store
+		store raftlog.Store
 	)
 	for {
 		select {
 		case <-b.catacomb.Dying():
 			return b.catacomb.ErrDying()
-		case r = <-b.raftIn:
-			logger.Debugf("new raft put into the box")
-			out = b.raftOut
-		case out <- r:
+		case store = <-b.storeIn:
+			logger.Debugf("new raftlog.Store put into the box")
+			out = b.storeOut
+		case out <- store:
 		}
 	}
 }
@@ -70,12 +70,18 @@ func (b *box) Wait() error {
 	return b.catacomb.Wait()
 }
 
-// Get returns a channel yielding the contained raft (once it's set).
-func (b *box) Get() <-chan *raft.Raft {
-	return b.raftOut
+// LogStore returns a channel yielding the contained raftlog.Store (once it's set).
+func (b *box) LogStore() <-chan raftlog.Store {
+	return b.storeOut
 }
 
-// Put accepts a raft that will be returned to anyone calling Get.
-func (b *box) Put(r *raft.Raft) {
-	b.raftIn <- r
+// Put accepts a raft stores that will be returned to anyone calling the associated getter for that type.
+func (b *box) Put(value interface{}) error {
+	switch store := value.(type) {
+	case raftlog.Store:
+		b.storeIn <- store
+	default:
+		return errors.Errorf("unexpected store type %T, expected raftlog.Store", value)
+	}
+	return nil
 }

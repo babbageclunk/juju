@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"time"
 
+	coreraft "github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raftlog"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
@@ -265,6 +267,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 	machineTag := agentConfig.Tag().(names.MachineTag)
 	controllerTag := agentConfig.Controller()
+
+	raftlogFSM := &raftlog.FSM{}
 
 	return dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
@@ -764,9 +768,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			TransportName: raftTransportName,
 			BoxName:       raftBoxName,
-			FSM:           &raft.SimpleFSM{},
+			FSM:           raftlogFSM,
 			Logger:        loggo.GetLogger("juju.worker.raft"),
 			NewWorker:     raft.NewWorker,
+			NewStore: func(r *coreraft.Raft) interface{} {
+				return raftlog.NewStore(raftlogFSM, r)
+			},
 		}),
 
 		raftFlagName: raftflag.Manifold(raftflag.ManifoldConfig{

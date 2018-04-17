@@ -4,10 +4,10 @@
 package raftbox
 
 import (
-	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	worker "gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/core/raftlog"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -34,14 +34,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// Putter enables a client to put a raft into the box.
+// Putter enables a client to put a raft store into the box.
 type Putter interface {
-	Put(*raft.Raft)
+	Put(interface{}) error
 }
 
-// Getter enables the client to get the raft from the box.
+// Getter enables the client to get raft stores from the box.
 type Getter interface {
-	Get() <-chan *raft.Raft
+	LogStore() <-chan raftlog.Store
 }
 
 func boxOutput(in worker.Worker, out interface{}) error {

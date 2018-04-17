@@ -27,6 +27,7 @@ type ManifoldConfig struct {
 	FSM       raft.FSM
 	Logger    Logger
 	NewWorker func(Config) (worker.Worker, error)
+	NewStore  func(*raft.Raft) interface{}
 }
 
 // Validate validates the manifold configuration.
@@ -51,6 +52,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.NewStore == nil {
+		return errors.NotValidf("nil NewStore")
 	}
 	return nil
 }
@@ -109,6 +113,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Transport:  transport,
 		Clock:      clk,
 		Box:        raftBox,
+		NewStore:   config.NewStore,
 	})
 }
 
