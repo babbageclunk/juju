@@ -14,7 +14,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
@@ -80,7 +79,7 @@ type Server struct {
 	upgradeComplete        func() bool
 	restoreStatus          func() state.RestoreStatus
 	mux                    *apiserverhttp.Mux
-	raft                   *raft.Raft
+	raftBox                RaftGetter
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -165,9 +164,9 @@ type ServerConfig struct {
 	// PrometheusRegisterer registers Prometheus collectors.
 	PrometheusRegisterer prometheus.Registerer
 
-	// Raft is the raft node through which we can apply changes to the
-	// cluster log.
-	Raft *raft.Raft
+	// RaftBox is the container from which we can get the local raft
+	// node.
+	RaftBox RaftGetter
 }
 
 // Validate validates the API server configuration.
@@ -266,7 +265,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		restoreStatus:                 cfg.RestoreStatus,
 		facades:                       AllFacades(),
 		mux:                           cfg.Mux,
-		raft:                          cfg.Raft,
+		raftBox:                       cfg.RaftBox,
 		authenticator:                 cfg.Authenticator,
 		allowModelAccess:              cfg.AllowModelAccess,
 		publicDNSName_:                cfg.PublicDNSName,
@@ -577,7 +576,10 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		appOfferHandler.checkThirdPartyCaveat,
 	)
 
-	raftHandler := &raftHandler{raft: srv.raft}
+	raftHandler := &raftHandler{
+		raftBox: srv.raftBox,
+		clock:   srv.clock,
+	}
 
 	handlers := []handler{{
 		pattern:         "/raftlogs",

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/raft/raftbox"
 )
 
 // ManifoldConfig holds the information necessary to run a raft
@@ -21,6 +22,7 @@ type ManifoldConfig struct {
 	ClockName     string
 	AgentName     string
 	TransportName string
+	BoxName       string
 
 	FSM       raft.FSM
 	Logger    Logger
@@ -37,6 +39,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.TransportName == "" {
 		return errors.NotValidf("empty TransportName")
+	}
+	if config.BoxName == "" {
+		return errors.NotValidf("empty BoxName")
 	}
 	if config.FSM == nil {
 		return errors.NotValidf("nil FSM")
@@ -57,6 +62,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ClockName,
 			config.AgentName,
 			config.TransportName,
+			config.BoxName,
 		},
 		Start:  config.start,
 		Output: raftOutput,
@@ -84,6 +90,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var raftBox raftbox.Putter
+	if err := context.Get(config.BoxName, &raftBox); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// TODO(axw) make the directory path configurable, so we can
 	// potentially have multiple Rafts. The dqlite raft should go
 	// in <data-dir>/dqlite.
@@ -97,6 +108,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		LocalID:    raft.ServerID(agentConfig.Tag().Id()),
 		Transport:  transport,
 		Clock:      clk,
+		Box:        raftBox,
 	})
 }
 

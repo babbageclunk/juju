@@ -67,6 +67,7 @@ import (
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/raft"
 	"github.com/juju/juju/worker/raft/raftbackstop"
+	"github.com/juju/juju/worker/raft/raftbox"
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/raftflag"
 	"github.com/juju/juju/worker/raft/rafttransport"
@@ -689,7 +690,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeGateName:                   upgradeStepsGateName,
 			RestoreStatusName:                 restoreWatcherName,
 			AuditConfigUpdaterName:            auditConfigUpdaterName,
-			RaftName:                          raftName,
+			RaftBoxName:                       raftBoxName,
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 			Hub:       config.CentralHub,
@@ -738,6 +739,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: featureflag.NewWorker,
 		})),
 
+		raftBoxName: ifController(raftbox.Manifold(raftbox.ManifoldConfig{
+			NewWorker: raftbox.New,
+		})),
+
 		// All the other raft workers hang off the raft transport, so
 		// it's the only one that needs to be gated by the enabled flag.
 		raftTransportName: ifRaftEnabled(rafttransport.Manifold(rafttransport.ManifoldConfig{
@@ -755,6 +760,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:     clockName,
 			AgentName:     agentName,
 			TransportName: raftTransportName,
+			BoxName:       raftBoxName,
 			FSM:           &raft.SimpleFSM{},
 			Logger:        loggo.GetLogger("juju.worker.raft"),
 			NewWorker:     raft.NewWorker,
@@ -895,4 +901,5 @@ const (
 	raftFlagName      = "raft-leader-flag"
 	raftEnabledName   = "raft-enabled-flag"
 	raftBackstopName  = "raft-backstop"
+	raftBoxName       = "raft-box"
 )
