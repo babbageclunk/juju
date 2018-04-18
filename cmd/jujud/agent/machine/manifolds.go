@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	coreagent "github.com/juju/juju/agent"
@@ -76,7 +75,6 @@ import (
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/restorewatcher"
 	"github.com/juju/juju/worker/resumer"
-	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -261,10 +259,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		}
 		return crosscontroller.NewClient(conn), nil
 	}
-
-	agentConfig := config.Agent.CurrentConfig()
-	machineTag := agentConfig.Tag().(names.MachineTag)
-	controllerTag := agentConfig.Controller()
 
 	raftlogFSM := &raftlog.FSM{}
 
@@ -487,19 +481,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			BackoffDelay:   globalClockUpdaterBackoffDelay,
 		}),
 
-		// Each controller machine runs a singular worker which will
-		// attempt to claim responsibility for running certain workers
-		// that must not be run concurrently by multiple agents.
-		isPrimaryControllerFlagName: ifController(singular.Manifold(singular.ManifoldConfig{
-			ClockName:     clockName,
-			APICallerName: apiCallerName,
-			Duration:      config.ControllerLeaseDuration,
-			Claimant:      machineTag,
-			Entity:        controllerTag,
-			NewFacade:     singular.NewFacade,
-			NewWorker:     singular.NewWorker,
-		})),
-
 		// The serving-info-setter manifold sets grabs the state
 		// serving info from the API connection and writes it to the
 		// agent config.
@@ -649,14 +630,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     hostkeyreporter.NewWorker,
 		})),
 
-		externalControllerUpdaterName: ifNotMigrating(ifPrimaryController(externalcontrollerupdater.Manifold(
+		externalControllerUpdaterName: ifNotMigrating(ifRaftLeader(externalcontrollerupdater.Manifold(
 			externalcontrollerupdater.ManifoldConfig{
 				APICallerName:                      apiCallerName,
 				NewExternalControllerWatcherClient: newExternalControllerWatcherClient,
 			},
 		))),
 
-		logPrunerName: ifNotMigrating(ifPrimaryController(dblogpruner.Manifold(
+		logPrunerName: ifNotMigrating(ifRaftLeader(dblogpruner.Manifold(
 			dblogpruner.ManifoldConfig{
 				ClockName:     clockName,
 				StateName:     stateName,
@@ -665,7 +646,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		))),
 
-		txnPrunerName: ifNotMigrating(ifPrimaryController(txnpruner.Manifold(
+		txnPrunerName: ifNotMigrating(ifRaftLeader(txnpruner.Manifold(
 			txnpruner.ManifoldConfig{
 				ClockName:     clockName,
 				StateName:     stateName,
@@ -820,12 +801,6 @@ var ifNotMigrating = engine.Housing{
 	Occupy: migrationFortressName,
 }.Decorate
 
-var ifPrimaryController = engine.Housing{
-	Flags: []string{
-		isPrimaryControllerFlagName,
-	},
-}.Decorate
-
 var ifController = engine.Housing{
 	Flags: []string{
 		isControllerFlagName,
@@ -888,7 +863,6 @@ const (
 	fanConfigurerName             = "fan-configurer"
 	externalControllerUpdaterName = "external-controller-updater"
 	globalClockUpdaterName        = "global-clock-updater"
-	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	isControllerFlagName          = "is-controller-flag"
 	logPrunerName                 = "log-pruner"
 	txnPrunerName                 = "transaction-pruner"
