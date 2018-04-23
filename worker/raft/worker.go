@@ -394,6 +394,7 @@ func newRaftConfig(config Config) (*raft.Config, error) {
 	// Having ShutdownOnRemove true means that the raft node also
 	// stops when it's demoted if it's the leader.
 	raftConfig.ShutdownOnRemove = false
+	raftConfig.MaxAppendEntries = 512
 
 	logWriter := &raftutil.LoggoWriter{config.Logger, loggo.DEBUG}
 	raftConfig.Logger = log.New(logWriter, "", 0)
