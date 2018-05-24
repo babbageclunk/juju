@@ -475,6 +475,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(gui.NewGUICommand())
 	r.Register(gui.NewUpgradeGUICommand())
 
+	r.Register(NewBenchmarkCommand())
+
 	// Resource commands
 	r.Register(resource.NewUploadCommand(resource.UploadDeps{
 		NewClient: func(c *resource.UploadCommand) (resource.UploadClient, error) {
