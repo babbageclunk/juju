@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
@@ -27,6 +28,7 @@ type sharedServerContext struct {
 	statePool  *state.StatePool
 	centralHub *pubsub.StructuredHub
 	presence   presence.Recorder
+	raftBox    facade.RaftGetter
 	logger     loggo.Logger
 
 	featuresMutex sync.RWMutex
@@ -39,6 +41,7 @@ type sharedServerConfig struct {
 	statePool  *state.StatePool
 	centralHub *pubsub.StructuredHub
 	presence   presence.Recorder
+	raftBox    facade.RaftGetter
 	logger     loggo.Logger
 }
 
@@ -52,6 +55,9 @@ func (c *sharedServerConfig) validate() error {
 	if c.presence == nil {
 		return errors.NotValidf("nil presence")
 	}
+	if c.raftBox == nil {
+		return errors.NotValidf("nil raftBox")
+	}
 	return nil
 }
 
@@ -63,6 +69,7 @@ func newSharedServerContex(config sharedServerConfig) (*sharedServerContext, err
 		statePool:  config.statePool,
 		centralHub: config.centralHub,
 		presence:   config.presence,
+		raftBox:    config.raftBox,
 		logger:     config.logger,
 	}
 	controllerConfig, err := ctx.statePool.SystemState().ControllerConfig()

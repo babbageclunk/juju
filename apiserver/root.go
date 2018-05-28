@@ -417,6 +417,11 @@ func (ctx *facadeContext) Hub() facade.Hub {
 	return ctx.r.shared.centralHub
 }
 
+// RaftGetter implements facade.Context.
+func (ctx *facadeContext) RaftGetter() facade.RaftGetter {
+	return ctx.r.shared.raftBox
+}
+
 // State is part of of the facade.Context interface.
 func (ctx *facadeContext) State() *state.State {
 	return ctx.r.state

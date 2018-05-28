@@ -79,7 +79,6 @@ type Server struct {
 	upgradeComplete        func() bool
 	restoreStatus          func() state.RestoreStatus
 	mux                    *apiserverhttp.Mux
-	raftBox                RaftGetter
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -166,7 +165,7 @@ type ServerConfig struct {
 
 	// RaftBox is the container from which we can get the local raft
 	// node.
-	RaftBox RaftGetter
+	RaftBox facade.RaftGetter
 }
 
 // Validate validates the API server configuration.
@@ -246,6 +245,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		statePool:  cfg.StatePool,
 		centralHub: cfg.Hub,
 		presence:   cfg.Presence,
+		raftBox:    cfg.RaftBox,
 		logger:     loggo.GetLogger("juju.apiserver"),
 	})
 	if err != nil {
@@ -265,7 +265,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		restoreStatus:                 cfg.RestoreStatus,
 		facades:                       AllFacades(),
 		mux:                           cfg.Mux,
-		raftBox:                       cfg.RaftBox,
 		authenticator:                 cfg.Authenticator,
 		allowModelAccess:              cfg.AllowModelAccess,
 		publicDNSName_:                cfg.PublicDNSName,
@@ -576,17 +575,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		appOfferHandler.checkThirdPartyCaveat,
 	)
 
-	raftHandler := &raftHandler{
-		raftBox: srv.raftBox,
-		clock:   srv.clock,
-	}
-
 	handlers := []handler{{
-		pattern:         "/raftlogs",
-		methods:         []string{"GET", "PUT"},
-		handler:         raftHandler,
-		unauthenticated: true,
-	}, {
 		// This handler is model specific even though it only
 		// ever makes sense for a controller because the API
 		// caller that is handed to the worker that is forwarding
