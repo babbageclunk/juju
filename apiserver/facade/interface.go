@@ -7,6 +7,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raftlog"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -69,6 +70,10 @@ type Context interface {
 	// Hub returns the central hub that the API server holds.
 	// At least at this stage, facades only need to publish events.
 	Hub() Hub
+
+	// RaftGetter returns an object that API facades can use to get
+	// raft stores they need.
+	RaftGetter() RaftGetter
 
 	// ID returns a string that should almost always be "", unless
 	// this is a watcher facade, in which case it exists in lieu of
@@ -157,4 +162,10 @@ type ModelPresence interface {
 // Hub represents the central hub that the API server has.
 type Hub interface {
 	Publish(topic string, data interface{}) (<-chan struct{}, error)
+}
+
+// RaftGetter represents a type that API facades can use to get a
+// reference to the running raft FSM.
+type RaftGetter interface {
+	LogStore() <-chan raftlog.Store
 }
