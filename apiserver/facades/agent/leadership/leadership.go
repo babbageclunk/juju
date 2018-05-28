@@ -5,6 +5,7 @@ package leadership
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/raftlog"
 )
 
 const (
@@ -55,6 +57,7 @@ func NewLeadershipService(
 // leadershipService implements the LeadershipService interface and
 // is the concrete implementation of the API endpoint.
 type leadershipService struct {
+	raftGetter facade.RaftGetter
 	claimer    leadership.Claimer
 	authorizer facade.Authorizer
 }
@@ -93,6 +96,58 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 			continue
 		}
 		if err = m.claimer.ClaimLeadership(applicationTag.Id(), unitTag.Id(), duration); err != nil {
+			result.Error = common.ServerError(err)
+		}
+	}
+
+	return params.ClaimLeadershipBulkResults{results}, nil
+}
+
+// ClaimLeadershipRaft is part of the LeadershipService
+// interface. It'll be used for benchmarking raft transactions.
+// ClaimLeadership is part of the LeadershipService interface.
+func (m *leadershipService) ClaimLeadershipRaft(args params.ClaimLeadershipBulkParams) (params.ClaimLeadershipBulkResults, error) {
+	results := make([]params.ErrorResult, len(args.Params))
+	for pIdx, p := range args.Params {
+
+		result := &results[pIdx]
+		applicationTag, unitTag, err := parseApplicationAndUnitTags(p.ApplicationTag, p.UnitTag)
+		if err != nil {
+			result.Error = common.ServerError(err)
+			continue
+		}
+		duration := time.Duration(p.DurationSeconds * float64(time.Second))
+		if duration > MaxLeaseRequest || duration < MinLeaseRequest {
+			result.Error = common.ServerError(errors.New("invalid duration"))
+			continue
+		}
+
+		// In the future, situations may arise wherein units will make
+		// leadership claims for other units. For now, units can only
+		// claim leadership for themselves, for their own service.
+		authTag := m.authorizer.GetAuthTag()
+		canClaim := false
+		switch authTag.(type) {
+		case names.UnitTag:
+			canClaim = m.authorizer.AuthOwner(unitTag) && m.authMember(applicationTag)
+		case names.ApplicationTag:
+			canClaim = m.authorizer.AuthOwner(applicationTag)
+		}
+		if !canClaim {
+			result.Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		var store raftlog.Store
+		select {
+		case <-time.After(50 * time.Millisecond):
+			result.Error = common.ServerError(errors.New("raftlog store not ready yet"))
+			continue
+		case store = <-m.raftGetter.LogStore():
+		}
+
+		message := fmt.Sprintf("leadership of %s claimed by %s for %.2f", applicationTag.Id(), unitTag.Id(), duration.Seconds())
+		if err := store.Append([]byte(message)); err != nil {
 			result.Error = common.ServerError(err)
 		}
 	}

@@ -47,6 +47,30 @@ func (c *client) ClaimLeadership(appId, unitId string, duration time.Duration) e
 	return nil
 }
 
+// ClaimLeadershipRaft is an extension to the leadership.Claimer interface for benchmarking raft operations.
+func (c *client) ClaimLeadershipRaft(serviceId, unitId string, duration time.Duration) error {
+
+	bulkParams := params.ClaimLeadershipBulkParams{
+		Params: []params.ClaimLeadershipParams{c.prepareClaimLeadership(serviceId, unitId, duration)},
+	}
+
+	var results params.ClaimLeadershipBulkResults
+	if err := c.FacadeCall("ClaimLeadershipRaft", bulkParams, &results); err != nil {
+		return errors.Annotate(err, "error making a leadership claim")
+	}
+
+	// TODO(fwereade): this is not a rightful panic; we don't know who'll be using
+	// this client, and/or whether or not we're running critical code in the same
+	// process.
+	if err := results.Results[0].Error; err != nil {
+		if params.IsCodeLeadershipClaimDenied(err) {
+			return leadership.ErrClaimDenied
+		}
+		return err
+	}
+	return nil
+}
+
 // BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
 func (c *client) BlockUntilLeadershipReleased(appId string, cancel <-chan struct{}) error {
 	const friendlyErrMsg = "error blocking on leadership release"
