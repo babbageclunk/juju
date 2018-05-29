@@ -32,6 +32,8 @@ type Claimer interface {
 	// at least the supplied duration from the point when the call was made.
 	ClaimLeadership(applicationId, unitId string, duration time.Duration) error
 
+	ClaimLeadershipRaft(applicationId, unitId string, duration time.Duration) error
+
 	// BlockUntilLeadershipReleased blocks until the named application is known
 	// to have no leader, in which case it returns no error; or until the
 	// manager is stopped, in which case it will fail.

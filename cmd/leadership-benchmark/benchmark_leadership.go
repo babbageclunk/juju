@@ -95,6 +95,7 @@ type benchmarkCommand struct {
 	factor    int
 	debug     bool
 	units     int
+	raft      bool
 	unitNames []string
 }
 
@@ -116,6 +117,7 @@ func (c *benchmarkCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.factor, "f", 1, "Number of goroutines to run per unit")
 	f.IntVar(&c.factor, "factor", 1, "")
 	f.BoolVar(&c.debug, "debug", false, "Show debug logging")
+	f.BoolVar(&c.raft, "raft", false, "Use the raft method")
 	f.IntVar(&c.units, "units", 0, "Number of units to run against (0 for all)")
 }
 
@@ -230,7 +232,7 @@ func (c *benchmarkCommand) runUnitWorkers(samples chan<- time.Duration) error {
 	for i := 0; i < c.factor; i++ {
 		for _, unit := range c.unitNames {
 			unit := unit
-			w, err := newUnitWorker(unit, samples, func() (*closableClaimer, error) {
+			w, err := newUnitWorker(unit, c.raft, samples, func() (*closableClaimer, error) {
 				return c.getAPI(unit)
 			})
 			if err != nil {
@@ -247,7 +249,7 @@ func (c *benchmarkCommand) runUnitWorkers(samples chan<- time.Duration) error {
 	return nil
 }
 
-func newUnitWorker(unit string, target chan<- time.Duration, getClaimer func() (*closableClaimer, error)) (*unitWorker, error) {
+func newUnitWorker(unit string, raft bool, target chan<- time.Duration, getClaimer func() (*closableClaimer, error)) (*unitWorker, error) {
 	application, err := names.UnitApplication(unit)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -255,6 +257,7 @@ func newUnitWorker(unit string, target chan<- time.Duration, getClaimer func() (
 	w := unitWorker{
 		application: application,
 		unit:        unit,
+		raft:        raft,
 		getClaimer:  getClaimer,
 		target:      target,
 	}
@@ -266,6 +269,7 @@ type unitWorker struct {
 	tomb        tomb.Tomb
 	application string
 	unit        string
+	raft        bool
 	getClaimer  func() (*closableClaimer, error)
 	target      chan<- time.Duration
 }
@@ -284,6 +288,10 @@ func (w *unitWorker) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	claim := claimer.ClaimLeadership
+	if w.raft {
+		claim = claimer.ClaimLeadershipRaft
+	}
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -292,7 +300,7 @@ func (w *unitWorker) loop() error {
 		default:
 		}
 		start := time.Now()
-		err := claimer.ClaimLeadership(w.application, w.unit, 30*time.Second)
+		err := claim(w.application, w.unit, 30*time.Second)
 		if err != nil {
 			return errors.Trace(err)
 		}
