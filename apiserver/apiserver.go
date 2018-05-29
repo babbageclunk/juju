@@ -574,8 +574,17 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		srv.offerAuthCtxt.ThirdPartyBakeryService().(*bakery.Service),
 		appOfferHandler.checkThirdPartyCaveat,
 	)
+	raftHandler := &raftHandler{
+		raftBox: srv.shared.raftBox,
+		clock:   srv.clock,
+	}
 
 	handlers := []handler{{
+		pattern:         "/raftlogs",
+		methods:         []string{"GET", "PUT"},
+		handler:         raftHandler,
+		unauthenticated: true,
+	}, {
 		// This handler is model specific even though it only
 		// ever makes sense for a controller because the API
 		// caller that is handed to the worker that is forwarding

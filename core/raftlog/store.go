@@ -46,5 +46,5 @@ func (s *store) Logs() [][]byte {
 }
 
 func (s *store) Count() int {
-	return len(s.fsm.logs)
+	return s.fsm.logs.Len()
 }

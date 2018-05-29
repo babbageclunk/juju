@@ -55,7 +55,7 @@ func boxOutput(in worker.Worker, out interface{}) error {
 	case *Getter:
 		*target = b
 	default:
-		return errors.Errorf("expected Putter or Getter, got %T")
+		return errors.Errorf("expected Putter or Getter, got %T", out)
 	}
 	return nil
 }

@@ -262,7 +262,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		return crosscontroller.NewClient(conn), nil
 	}
 
-	raftlogFSM := &raftlog.FSM{}
+	raftlogFSM := raftlog.NewFSM()
 
 	return dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the

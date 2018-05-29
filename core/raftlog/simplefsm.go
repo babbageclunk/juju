@@ -9,21 +9,31 @@ import (
 	"sync"
 
 	"github.com/hashicorp/raft"
+	"github.com/juju/collections/deque"
 )
 
 // FSM is an implementation of raft.FSM, which simply appends
 // log data to a slice.
 type FSM struct {
 	mu   sync.Mutex
-	logs [][]byte
+	logs *deque.Deque
+}
+
+// NewFSM creates a new empty FSM.
+func NewFSM() *FSM {
+	return &FSM{logs: deque.NewWithMaxLen(1000)}
 }
 
 // Logs returns the accumulated log data.
 func (fsm *FSM) Logs() [][]byte {
 	fsm.mu.Lock()
 	defer fsm.mu.Unlock()
-	copied := make([][]byte, len(fsm.logs))
-	copy(copied, fsm.logs)
+	copied := make([][]byte, fsm.logs.Len())
+	for i := 0; i < fsm.logs.Len(); i++ {
+		item, _ := fsm.logs.PopFront()
+		copied = append(copied, item.([]byte))
+		fsm.logs.PushBack(item)
+	}
 	return copied
 }
 
@@ -31,16 +41,14 @@ func (fsm *FSM) Logs() [][]byte {
 func (fsm *FSM) Apply(log *raft.Log) interface{} {
 	fsm.mu.Lock()
 	defer fsm.mu.Unlock()
-	fsm.logs = append(fsm.logs, log.Data)
-	return len(fsm.logs)
+	fsm.logs.PushBack(log.Data)
+
+	return fsm.logs.Len()
 }
 
 // Snapshot is part of the raft.FSM interface.
 func (fsm *FSM) Snapshot() (raft.FSMSnapshot, error) {
-	fsm.mu.Lock()
-	defer fsm.mu.Unlock()
-	copied := make([][]byte, len(fsm.logs))
-	copy(copied, fsm.logs)
+	copied := fsm.Logs()
 	return &SimpleSnapshot{copied, len(copied)}, nil
 }
 
@@ -52,7 +60,9 @@ func (fsm *FSM) Restore(rc io.ReadCloser) error {
 		return err
 	}
 	fsm.mu.Lock()
-	fsm.logs = logs
+	for _, item := range logs {
+		fsm.logs.PushBack(item)
+	}
 	fsm.mu.Unlock()
 	return nil
 }

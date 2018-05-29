@@ -5,7 +5,6 @@ package leadership
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -36,12 +35,16 @@ const (
 // NewLeadershipServiceFacade constructs a new LeadershipService and presents
 // a signature that can be used for facade registration.
 func NewLeadershipServiceFacade(context facade.Context) (LeadershipService, error) {
-	return NewLeadershipService(context.State().LeadershipClaimer(), context.Auth())
+	return NewLeadershipService(
+		context.State().LeadershipClaimer(),
+		context.RaftGetter(),
+		context.Auth(),
+	)
 }
 
 // NewLeadershipService constructs a new LeadershipService.
 func NewLeadershipService(
-	claimer leadership.Claimer, authorizer facade.Authorizer,
+	claimer leadership.Claimer, raftGetter facade.RaftGetter, authorizer facade.Authorizer,
 ) (LeadershipService, error) {
 
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
@@ -50,6 +53,7 @@ func NewLeadershipService(
 
 	return &leadershipService{
 		claimer:    claimer,
+		raftGetter: raftGetter,
 		authorizer: authorizer,
 	}, nil
 }
@@ -146,8 +150,7 @@ func (m *leadershipService) ClaimLeadershipRaft(args params.ClaimLeadershipBulkP
 		case store = <-m.raftGetter.LogStore():
 		}
 
-		message := fmt.Sprintf("leadership of %s claimed by %s for %.2f", applicationTag.Id(), unitTag.Id(), duration.Seconds())
-		if err := store.Append([]byte(message)); err != nil {
+		if err := store.Append([]byte("hi")); err != nil {
 			result.Error = common.ServerError(err)
 		}
 	}

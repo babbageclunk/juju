@@ -136,6 +136,10 @@ func (m leadershipClaimer) ClaimLeadership(applicationname, unitName string, dur
 	return errors.Trace(err)
 }
 
+func (m leadershipClaimer) ClaimLeadershipRaft(applicationName, unitName string, duration time.Duration) error {
+	return errors.New("shouldn't have been called")
+}
+
 // BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
 func (m leadershipClaimer) BlockUntilLeadershipReleased(applicationname string, cancel <-chan struct{}) error {
 	err := m.claimer.WaitUntilExpired(applicationname, cancel)
