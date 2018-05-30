@@ -292,6 +292,10 @@ func (w *unitWorker) loop() error {
 	if w.raft {
 		claim = claimer.ClaimLeadershipRaft
 	}
+	// Start with just over a minute (which is what the unit agents
+	// use) and keep increasing the duration to ensure we always need
+	// to extend the lease.
+	duration := 60*time.Second + time.Millisecond
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -300,12 +304,13 @@ func (w *unitWorker) loop() error {
 		default:
 		}
 		start := time.Now()
-		err := claim(w.application, w.unit, 30*time.Second)
+		err := claim(w.application, w.unit, duration)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		end := time.Now()
 
+		duration += time.Millisecond
 		select {
 		case <-w.tomb.Dying():
 			logger.Debugf("stopping worker for %s", w.unit)
