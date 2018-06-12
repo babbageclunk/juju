@@ -15,8 +15,9 @@ import (
 // FSM is an implementation of raft.FSM, which simply appends
 // log data to a slice.
 type FSM struct {
-	mu   sync.Mutex
-	logs *deque.Deque
+	mu    sync.Mutex
+	logs  *deque.Deque
+	count int
 }
 
 // NewFSM creates a new empty FSM.
@@ -25,16 +26,16 @@ func NewFSM() *FSM {
 }
 
 // Logs returns the accumulated log data.
-func (fsm *FSM) Logs() [][]byte {
+func (fsm *FSM) Logs() ([][]byte, int) {
 	fsm.mu.Lock()
 	defer fsm.mu.Unlock()
 	copied := make([][]byte, fsm.logs.Len())
 	for i := 0; i < fsm.logs.Len(); i++ {
 		item, _ := fsm.logs.PopFront()
-		copied = append(copied, item.([]byte))
+		copied[i] = item.([]byte)
 		fsm.logs.PushBack(item)
 	}
-	return copied
+	return copied, fsm.count
 }
 
 // Apply is part of the raft.FSM interface.
@@ -42,27 +43,30 @@ func (fsm *FSM) Apply(log *raft.Log) interface{} {
 	fsm.mu.Lock()
 	defer fsm.mu.Unlock()
 	fsm.logs.PushBack(log.Data)
+	fsm.count++
 
 	return fsm.logs.Len()
 }
 
 // Snapshot is part of the raft.FSM interface.
 func (fsm *FSM) Snapshot() (raft.FSMSnapshot, error) {
-	copied := fsm.Logs()
-	return &SimpleSnapshot{copied, len(copied)}, nil
+	copied, count := fsm.Logs()
+	return &SimpleSnapshot{copied, count}, nil
 }
 
 // Restore is part of the raft.FSM interface.
 func (fsm *FSM) Restore(rc io.ReadCloser) error {
 	defer rc.Close()
-	var logs [][]byte
-	if err := gob.NewDecoder(rc).Decode(&logs); err != nil {
+	var snap SimpleSnapshot
+	if err := gob.NewDecoder(rc).Decode(&snap); err != nil {
 		return err
 	}
 	fsm.mu.Lock()
-	for _, item := range logs {
+
+	for _, item := range snap.logs {
 		fsm.logs.PushBack(item)
 	}
+	fsm.count = snap.count
 	fsm.mu.Unlock()
 	return nil
 }
@@ -70,13 +74,13 @@ func (fsm *FSM) Restore(rc io.ReadCloser) error {
 // SimpleSnapshot is an implementation of raft.FSMSnapshot, returned
 // by the FSM.Snapshot in this package.
 type SimpleSnapshot struct {
-	logs [][]byte
-	n    int
+	logs  [][]byte
+	count int
 }
 
 // Persist is part of the raft.FSMSnapshot interface.
 func (snap *SimpleSnapshot) Persist(sink raft.SnapshotSink) error {
-	if err := gob.NewEncoder(sink).Encode(snap.logs[:snap.n]); err != nil {
+	if err := gob.NewEncoder(sink).Encode(snap); err != nil {
 		sink.Cancel()
 		return err
 	}

@@ -311,12 +311,7 @@ func (w *unitWorker) loop() error {
 		end := time.Now()
 
 		duration += time.Millisecond
-		select {
-		case <-w.tomb.Dying():
-			logger.Debugf("stopping worker for %s", w.unit)
-			return claimer.close()
-		case w.target <- end.Sub(start):
-		}
+		w.target <- end.Sub(start)
 	}
 }
 

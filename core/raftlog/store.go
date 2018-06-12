@@ -20,7 +20,7 @@ type Store interface {
 	// Logs returns all the current logs.
 	Logs() [][]byte
 
-	// Count returns how many logs we have.
+	// Count returns how many logs we have seen.
 	Count() int
 }
 
@@ -42,9 +42,11 @@ func (s *store) Append(data []byte) error {
 
 // Logs implements Store.
 func (s *store) Logs() [][]byte {
-	return s.fsm.Logs()
+	logs, _ := s.fsm.Logs()
+	return logs
 }
 
 func (s *store) Count() int {
-	return s.fsm.logs.Len()
+	_, count := s.fsm.Logs()
+	return count
 }
