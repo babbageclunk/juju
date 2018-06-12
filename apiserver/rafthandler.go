@@ -53,6 +53,10 @@ func (h *raftHandler) getStore() (raftlog.Store, error) {
 }
 
 func (h *raftHandler) doGet(w http.ResponseWriter, store raftlog.Store) error {
+	_, err := w.Write([]byte(fmt.Sprintf("total records: %d\n", store.Count())))
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for _, line := range store.Logs() {
 		_, err := w.Write(line)
 		if err != nil {
