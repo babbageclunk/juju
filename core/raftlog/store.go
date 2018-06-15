@@ -22,6 +22,9 @@ type Store interface {
 
 	// Count returns how many logs we have seen.
 	Count() int
+
+	// IsLeader returns whether this raft node is the leader.
+	IsLeader() bool
 }
 
 // NewStore makes a Store from the raft and FSM passed in.
@@ -49,4 +52,8 @@ func (s *store) Logs() [][]byte {
 func (s *store) Count() int {
 	_, count := s.fsm.Logs()
 	return count
+}
+
+func (s *store) IsLeader() bool {
+	return s.raft.State() == raft.Leader
 }

@@ -81,6 +81,10 @@ type Info struct {
 	// Nonce holds the nonce used when provisioning the machine. Used
 	// only by the machine agent.
 	Nonce string `yaml:",omitempty"`
+
+	// RaftLeaderOnly indicates to the servers that they should fail
+	// the connection unless they're the raft leader.
+	RaftLeaderOnly bool
 }
 
 // Ports returns the unique ports for the api addresses.

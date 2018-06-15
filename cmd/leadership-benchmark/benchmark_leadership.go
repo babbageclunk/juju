@@ -167,8 +167,8 @@ type closableClaimer struct {
 	close func() error
 }
 
-func (c *benchmarkCommand) getAPI(unit string) (*closableClaimer, error) {
-	info, err := c.connectionInfo(unit)
+func (c *benchmarkCommand) getAPI(unit string, raft bool) (*closableClaimer, error) {
+	info, err := c.connectionInfo(unit, raft)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -182,13 +182,14 @@ func (c *benchmarkCommand) getAPI(unit string) (*closableClaimer, error) {
 	}, nil
 }
 
-func (c *benchmarkCommand) connectionInfo(unit string) (*api.Info, error) {
+func (c *benchmarkCommand) connectionInfo(unit string, raft bool) (*api.Info, error) {
 	return &api.Info{
-		Addrs:    c.config.APIEndpoints,
-		CACert:   c.config.CACert,
-		ModelTag: names.NewModelTag(c.config.ModelUUID),
-		Tag:      names.NewUnitTag(unit),
-		Password: c.config.Units[unit],
+		Addrs:          c.config.APIEndpoints,
+		CACert:         c.config.CACert,
+		ModelTag:       names.NewModelTag(c.config.ModelUUID),
+		Tag:            names.NewUnitTag(unit),
+		Password:       c.config.Units[unit],
+		RaftLeaderOnly: raft,
 	}, nil
 }
 
@@ -232,8 +233,8 @@ func (c *benchmarkCommand) runUnitWorkers(samples chan<- time.Duration) error {
 	for i := 0; i < c.factor; i++ {
 		for _, unit := range c.unitNames {
 			unit := unit
-			w, err := newUnitWorker(unit, c.raft, samples, func() (*closableClaimer, error) {
-				return c.getAPI(unit)
+			w, err := newUnitWorker(unit, c.raft, samples, func(raft bool) (*closableClaimer, error) {
+				return c.getAPI(unit, raft)
 			})
 			if err != nil {
 				return errors.Trace(err)
@@ -249,7 +250,7 @@ func (c *benchmarkCommand) runUnitWorkers(samples chan<- time.Duration) error {
 	return nil
 }
 
-func newUnitWorker(unit string, raft bool, target chan<- time.Duration, getClaimer func() (*closableClaimer, error)) (*unitWorker, error) {
+func newUnitWorker(unit string, raft bool, target chan<- time.Duration, getClaimer func(bool) (*closableClaimer, error)) (*unitWorker, error) {
 	application, err := names.UnitApplication(unit)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -257,11 +258,14 @@ func newUnitWorker(unit string, raft bool, target chan<- time.Duration, getClaim
 	w := unitWorker{
 		application: application,
 		unit:        unit,
-		raft:        raft,
 		getClaimer:  getClaimer,
 		target:      target,
 	}
-	w.tomb.Go(w.loop)
+	loop := w.nonRaftLoop
+	if raft {
+		loop = w.raftLoop
+	}
+	w.tomb.Go(loop)
 	return &w, nil
 }
 
@@ -269,8 +273,7 @@ type unitWorker struct {
 	tomb        tomb.Tomb
 	application string
 	unit        string
-	raft        bool
-	getClaimer  func() (*closableClaimer, error)
+	getClaimer  func(bool) (*closableClaimer, error)
 	target      chan<- time.Duration
 }
 
@@ -282,15 +285,11 @@ func (w *unitWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (w *unitWorker) loop() error {
+func (w *unitWorker) nonRaftLoop() error {
 	logger.Debugf("starting worker for %s", w.unit)
-	claimer, err := w.getClaimer()
+	claimer, err := w.getClaimer(false)
 	if err != nil {
 		return errors.Trace(err)
-	}
-	claim := claimer.ClaimLeadership
-	if w.raft {
-		claim = claimer.ClaimLeadershipRaft
 	}
 	// Start with just over a minute (which is what the unit agents
 	// use) and keep increasing the duration to ensure we always need
@@ -304,14 +303,46 @@ func (w *unitWorker) loop() error {
 		default:
 		}
 		start := time.Now()
-		err := claim(w.application, w.unit, duration)
+		err := claimer.ClaimLeadership(w.application, w.unit, duration)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		end := time.Now()
 
-		duration += time.Millisecond
 		w.target <- end.Sub(start)
+		duration += time.Millisecond
+	}
+}
+
+func (w *unitWorker) raftLoop() error {
+	logger.Debugf("starting worker for %s", w.unit)
+	// Start with just over a minute (which is what the unit agents
+	// use) and keep increasing the duration to ensure we always need
+	// to extend the lease.
+	duration := 60*time.Second + time.Millisecond
+	for {
+		select {
+		case <-w.tomb.Dying():
+			logger.Debugf("stopping worker for %s", w.unit)
+			return tomb.ErrDying
+		default:
+		}
+		start := time.Now()
+		claimer, err := w.getClaimer(true)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = claimer.ClaimLeadership(w.application, w.unit, duration)
+		if err != nil {
+			claimer.close()
+			return errors.Trace(err)
+		}
+
+		claimer.close()
+		end := time.Now()
+
+		w.target <- end.Sub(start)
+		duration += time.Millisecond
 	}
 }
 

@@ -24,7 +24,7 @@ END {print treqs "," mean "," min "," max "," stddev}'
 
 echo applications,seconds,mongo-total,mongo-mean,mongo-min,mongo-max,mongo-stddev,raft-total,raft-mean,raft-min,raft-max,raft-stddev
 for units in $(seq 1 40); do
-    raft=$(./leadership-benchmark -t 20 --units $units raft.yaml --raft | awk "$fieldscript")
-    orig=$(./leadership-benchmark -t 20 --units $units mongo.yaml | awk "$fieldscript")
+    raft=$(./leadership-benchmark -t 20 --units $units config.yaml --raft | awk "$fieldscript")
+    orig=$(./leadership-benchmark -t 20 --units $units config.yaml | awk "$fieldscript")
     echo $units,20,$orig,$raft
 done

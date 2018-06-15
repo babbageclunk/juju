@@ -798,6 +798,22 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	apiObserver.Join(req, connectionID)
 	defer apiObserver.Leave()
 
+	raftLeaderOnly := req.URL.Query().Get("raftleader")
+	if raftLeaderOnly == "true" {
+		// We need to get the raft store to find out whether this node
+		// is the leader.
+		select {
+		case store := <-srv.shared.raftBox.LogStore():
+			if !store.IsLeader() {
+				http.Error(w, "not the raft leader", http.StatusPreconditionFailed)
+				return
+			}
+		case <-srv.clock.After(50 * time.Millisecond):
+			http.Error(w, "raft store not ready yet", http.StatusPreconditionFailed)
+			return
+		}
+	}
+
 	websocket.Serve(w, req, func(conn *websocket.Conn) {
 		modelUUID := httpcontext.RequestModelUUID(req)
 		logger.Tracef("got a request for model %q", modelUUID)
