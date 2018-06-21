@@ -92,6 +92,9 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := r.resources.RegisterNamed("connectionID", common.StringResource(fmt.Sprint(connectionID))); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Facades involved with managing application offers need the auth context
 	// to mint and validate macaroons.

@@ -29,6 +29,8 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
+const workerSendTimeout = 50 * time.Millisecond
+
 var logger = loggo.GetLogger("benchmark")
 
 var benchmarkSummary = `
@@ -89,13 +91,13 @@ func NewBenchmarkCommand() cmd.Command {
 // benchmarkCommand is responsible for benchmarking leadership
 // claims.
 type benchmarkCommand struct {
-	catacomb  catacomb.Catacomb
 	config    config
 	runtime   int
 	factor    int
 	debug     bool
 	units     int
 	raft      bool
+	requests  int
 	unitNames []string
 }
 
@@ -119,6 +121,8 @@ func (c *benchmarkCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.debug, "debug", false, "Show debug logging")
 	f.BoolVar(&c.raft, "raft", false, "Use the raft method")
 	f.IntVar(&c.units, "units", 0, "Number of units to run against (0 for all)")
+	f.IntVar(&c.requests, "n", 0, "Number of total claims to make (0 for no limit)")
+	f.IntVar(&c.requests, "requests", 0, "")
 }
 
 func (c *benchmarkCommand) Init(args []string) error {
@@ -195,11 +199,12 @@ func (c *benchmarkCommand) connectionInfo(unit string) (*api.Info, error) {
 func (c *benchmarkCommand) Run(ctx *cmd.Context) error {
 	fmt.Fprintf(ctx.Stdout, "running for %ds against: %s\n", c.runtime, strings.Join(c.unitNames, ","))
 	samples := make(chan time.Duration)
-	collector := newCollector(samples)
+	collector := newCollector(samples, c.requests)
+	var toplevel catacomb.Catacomb
 	err := catacomb.Invoke(catacomb.Plan{
-		Site: &c.catacomb,
+		Site: &toplevel,
 		Work: func() error {
-			return c.runUnitWorkers(samples)
+			return c.runUnitWorkers(&toplevel, samples)
 		},
 	})
 	if err != nil {
@@ -207,13 +212,30 @@ func (c *benchmarkCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	// Allow the collector to stop us when it reaches the request
+	// limit.
+	collectorDied := make(chan error)
+	go func() {
+		collectorDied <- collector.Wait()
+		logger.Debugf("reporting collector stopped")
+	}()
+
 	select {
-	case <-c.catacomb.Dying():
+	case <-toplevel.Dying():
 		worker.Stop(collector)
-		return errors.Trace(c.catacomb.Wait())
+		return errors.Trace(toplevel.Wait())
+	case err := <-collectorDied:
+		logger.Debugf("stopping workers")
+		toplevel.Kill(err)
+		logger.Debugf("waiting for workers")
+		err = toplevel.Wait()
+		logger.Debugf("workers finished")
+		if err != nil {
+			return errors.Trace(err)
+		}
 	case <-time.After(time.Duration(c.runtime) * time.Second):
-		c.catacomb.Kill(nil)
-		err := c.catacomb.Wait()
+		toplevel.Kill(nil)
+		err := toplevel.Wait()
 		close(samples)
 		collector.Wait()
 		if err != nil {
@@ -228,7 +250,7 @@ func (c *benchmarkCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *benchmarkCommand) runUnitWorkers(samples chan<- time.Duration) error {
+func (c *benchmarkCommand) runUnitWorkers(parent *catacomb.Catacomb, samples chan<- time.Duration) error {
 	for i := 0; i < c.factor; i++ {
 		for _, unit := range c.unitNames {
 			unit := unit
@@ -238,14 +260,15 @@ func (c *benchmarkCommand) runUnitWorkers(samples chan<- time.Duration) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			err = c.catacomb.Add(w)
+			err = parent.Add(w)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		}
 	}
 	// Wait until we get killed or one of the workers hits an error.
-	<-c.catacomb.Dying()
+	<-parent.Dying()
+	logger.Debugf("runUnitWorkers stopping")
 	return nil
 }
 
@@ -311,12 +334,18 @@ func (w *unitWorker) loop() error {
 		end := time.Now()
 
 		duration += time.Millisecond
-		w.target <- end.Sub(start)
+		select {
+		case w.target <- end.Sub(start):
+		case <-time.After(workerSendTimeout):
+			// The collector must have stopped, presumably because it
+			// has enough samples.
+			logger.Debugf("worker send timed out for %s", w.unit)
+		}
 	}
 }
 
-func newCollector(samples <-chan time.Duration) *collector {
-	c := collector{samples: samples}
+func newCollector(samples <-chan time.Duration, maxRequests int) *collector {
+	c := collector{samples: samples, maxRequests: maxRequests}
 	c.tomb.Go(c.loop)
 	return &c
 }
@@ -324,6 +353,7 @@ func newCollector(samples <-chan time.Duration) *collector {
 type collector struct {
 	tomb            tomb.Tomb
 	samples         <-chan time.Duration
+	maxRequests     int
 	count           int
 	total, max, min time.Duration
 	m, s            float64
@@ -371,6 +401,9 @@ func (c *collector) loop() error {
 
 				oldM = c.m
 				oldS = c.s
+			}
+			if c.count == c.maxRequests {
+				return nil
 			}
 		}
 	}

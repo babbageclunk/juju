@@ -73,6 +73,7 @@ import (
 	"github.com/juju/juju/worker/raft/raftbox"
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/raftflag"
+	"github.com/juju/juju/worker/raft/raftforwarder"
 	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/restorewatcher"
@@ -779,6 +780,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:      raftbackstop.NewWorker,
 		}),
 
+		// The raft forwarder accepts leadership claim requests sent from non-raft-leader API servers and applies them.
+		raftForwarderName: ifRaftLeader(raftforwarder.Manifold(raftforwarder.ManifoldConfig{
+			RaftName:       raftName,
+			CentralHubName: centralHubName,
+			Logger:         loggo.GetLogger("juju.worker.raft.raftforwarder"),
+			NewWorker:      raftforwarder.NewWorker,
+		})),
+
 		validCredentialFlagName: credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{
 			APICallerName: apiCallerName,
 			NewFacade:     credentialvalidator.NewFacade,
@@ -898,6 +907,7 @@ const (
 	raftEnabledName   = "raft-enabled-flag"
 	raftBackstopName  = "raft-backstop"
 	raftBoxName       = "raft-box"
+	raftForwarderName = "raft-forwarder"
 
 	validCredentialFlagName = "valid-credential-flag"
 )

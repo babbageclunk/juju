@@ -90,3 +90,24 @@ type PresenceResponse struct {
 // OriginTarget represents the data for the connect and disconnect
 // topics.
 type OriginTarget common.OriginTarget
+
+// LeadershipRequestTopic is used to forward leadership requests from non-raft-leader machines to the leader.
+const LeadershipRequestTopic = "leadership.request"
+
+// LeadershipClaimRequest represents a leadership claim forwarded from
+// a non-raft-leader to be applied by the raft leader.
+type LeadershipClaimRequest struct {
+	ResponseTopic   string  `yaml:"response-topic"`
+	ModelUUID       string  `yaml:"model-uuid"`
+	Application     string  `yaml:"application"`
+	Unit            string  `yaml:"unit"`
+	DurationSeconds float64 `yaml:"duration"`
+}
+
+// LeadershipClaimResponse represents the response from a leadership
+// claim.
+type LeadershipClaimResponse struct {
+	Success bool   `yaml:"success"`
+	Message string `yaml:"message,omitempty"`
+	Code    string `yaml:"code,omitempty"`
+}

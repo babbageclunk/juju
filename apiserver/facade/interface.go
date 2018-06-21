@@ -162,6 +162,7 @@ type ModelPresence interface {
 // Hub represents the central hub that the API server has.
 type Hub interface {
 	Publish(topic string, data interface{}) (<-chan struct{}, error)
+	Subscribe(topic string, handler interface{}) (func(), error)
 }
 
 // RaftGetter represents a type that API facades can use to get a

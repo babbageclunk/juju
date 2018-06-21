@@ -5,8 +5,11 @@ package leadership
 
 import (
 	"context"
+	"fmt"
+	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -15,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/raftlog"
+	apiserverhub "github.com/juju/juju/pubsub/apiserver"
 )
 
 const (
@@ -30,6 +34,10 @@ const (
 	// MaxLeaseRequest is the longest duration for which we will accept
 	// a leadership claim.
 	MaxLeaseRequest = 5 * time.Minute
+
+	// forwardedClaimTimeout is the amount of time we'll wait for the
+	// raft leader to respond to a forwarded leadership claim.
+	forwardedClaimTimeout = 1 * time.Second
 )
 
 // NewLeadershipServiceFacade constructs a new LeadershipService and presents
@@ -39,31 +47,55 @@ func NewLeadershipServiceFacade(context facade.Context) (LeadershipService, erro
 		context.State().LeadershipClaimer(),
 		context.RaftGetter(),
 		context.Auth(),
+		context.Hub(),
+		context.Resources(),
 	)
 }
 
 // NewLeadershipService constructs a new LeadershipService.
 func NewLeadershipService(
-	claimer leadership.Claimer, raftGetter facade.RaftGetter, authorizer facade.Authorizer,
+	claimer leadership.Claimer,
+	raftGetter facade.RaftGetter,
+	authorizer facade.Authorizer,
+	hub facade.Hub,
+	resources facade.Resources,
 ) (LeadershipService, error) {
 
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, errors.Unauthorizedf("permission denied")
 	}
 
+	// For fowarded claim requests we need a unique request ID (across
+	// machines in this Juju controller) that will be used to send the
+	// response. This will be the machine-id, connection-id and an
+	// incremented request count on this facade.
+	machineID, err := extractResourceValue(resources, "machineID")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	connectionID, err := extractResourceValue(resources, "connectionID")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &leadershipService{
-		claimer:    claimer,
-		raftGetter: raftGetter,
-		authorizer: authorizer,
+		claimer:     claimer,
+		raftGetter:  raftGetter,
+		authorizer:  authorizer,
+		hub:         hub,
+		requestBase: fmt.Sprintf("%s-%s", machineID, connectionID),
 	}, nil
 }
 
 // leadershipService implements the LeadershipService interface and
 // is the concrete implementation of the API endpoint.
 type leadershipService struct {
-	raftGetter facade.RaftGetter
-	claimer    leadership.Claimer
-	authorizer facade.Authorizer
+	raftGetter  facade.RaftGetter
+	claimer     leadership.Claimer
+	authorizer  facade.Authorizer
+	hub         facade.Hub
+	requestBase string
+	requestID   uint64
 }
 
 // ClaimLeadership is part of the LeadershipService interface.
@@ -150,12 +182,66 @@ func (m *leadershipService) ClaimLeadershipRaft(args params.ClaimLeadershipBulkP
 		case store = <-m.raftGetter.LogStore():
 		}
 
-		if err := store.Append([]byte("hi")); err != nil {
+		if err := store.Append([]byte("hi")); errors.Cause(err) == raft.ErrNotLeader {
+			result.Error = m.forwardClaimToLeader(applicationTag, unitTag, p.DurationSeconds)
+		} else if err != nil {
 			result.Error = common.ServerError(err)
 		}
 	}
 
 	return params.ClaimLeadershipBulkResults{results}, nil
+}
+
+func (m *leadershipService) forwardClaimToLeader(
+	applicationTag names.ApplicationTag, unitTag names.UnitTag, durationSeconds float64,
+) *params.Error {
+	// Construct a unique topic for the response to be sent to, based
+	// on machine id, connection id and request counter.
+	requestID := atomic.AddUint64(&m.requestID, 1)
+	responseTopic := fmt.Sprintf("%s.%s-%d", apiserverhub.LeadershipRequestTopic,
+		m.requestBase, requestID)
+	request := apiserverhub.LeadershipClaimRequest{
+		ResponseTopic:   responseTopic,
+		ModelUUID:       m.authorizer.ConnectedModel(),
+		Application:     applicationTag.Id(),
+		Unit:            unitTag.Id(),
+		DurationSeconds: durationSeconds,
+	}
+
+	responseChan := make(chan apiserverhub.LeadershipClaimResponse, 1)
+	errChan := make(chan error)
+	// Get ready for the response to come back.
+	unsubscribe, err := m.hub.Subscribe(
+		responseTopic,
+		func(_ string, resp apiserverhub.LeadershipClaimResponse, err error) {
+			if err != nil {
+				errChan <- err
+				return
+			}
+			responseChan <- resp
+		},
+	)
+	if err != nil {
+		return common.ServerError(err)
+	}
+	defer unsubscribe()
+
+	_, err = m.hub.Publish(apiserverhub.LeadershipRequestTopic, request)
+	if err != nil {
+		return common.ServerError(err)
+	}
+
+	select {
+	case <-time.After(forwardedClaimTimeout):
+		return &params.Error{Code: params.CodeTryAgain, Message: "timed out waiting for response from raft leader"}
+	case err := <-errChan:
+		return common.ServerError(err)
+	case response := <-responseChan:
+		if !response.Success {
+			return &params.Error{Code: response.Code, Message: response.Message}
+		}
+	}
+	return nil
 }
 
 // BlockUntilLeadershipReleased implements the LeadershipService interface.
@@ -215,4 +301,17 @@ func parseApplicationAndUnitTags(
 	}
 
 	return applicationTag, unitTag, nil
+}
+
+func extractResourceValue(resources facade.Resources, key string) (string, error) {
+	res := resources.Get(key)
+	strRes, ok := res.(common.StringResource)
+	if !ok {
+		if res == nil {
+			strRes = ""
+		} else {
+			return "", errors.Errorf("invalid %s resource: %v", key, res)
+		}
+	}
+	return strRes.String(), nil
 }
