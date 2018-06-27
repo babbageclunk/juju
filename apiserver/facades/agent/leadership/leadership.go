@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/raftlog"
 	apiserverhub "github.com/juju/juju/pubsub/apiserver"
 )
 
@@ -173,20 +171,7 @@ func (m *leadershipService) ClaimLeadershipRaft(args params.ClaimLeadershipBulkP
 			result.Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-
-		var store raftlog.Store
-		select {
-		case <-time.After(50 * time.Millisecond):
-			result.Error = common.ServerError(errors.New("raftlog store not ready yet"))
-			continue
-		case store = <-m.raftGetter.LogStore():
-		}
-
-		if err := store.Append([]byte("hi")); errors.Cause(err) == raft.ErrNotLeader {
-			result.Error = m.forwardClaimToLeader(applicationTag, unitTag, p.DurationSeconds)
-		} else if err != nil {
-			result.Error = common.ServerError(err)
-		}
+		result.Error = m.forwardClaimToLeader(applicationTag, unitTag, p.DurationSeconds)
 	}
 
 	return params.ClaimLeadershipBulkResults{results}, nil
