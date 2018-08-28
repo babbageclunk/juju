@@ -100,8 +100,10 @@ func newPeerGroupInfo(
 	// possible; add any unassociated members to the "extra" slice.
 	// Link the statuses with the machine IDs where associated.
 	// Keep track of the highest member ID that we observe.
+	logger.Criticalf("machines: %#v", machines)
 	for _, m := range members {
 		found := false
+		logger.Criticalf("m: %#v", m)
 		if id, ok := m.Tags[jujuMachineKey]; ok {
 			if machines[id] != nil {
 				info.recognised[id] = m

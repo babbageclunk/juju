@@ -4,6 +4,7 @@
 package peergrouper
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -73,7 +74,7 @@ func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string) e
 	defer session.Close()
 	session.SetSocketTimeout(mongo.SocketTimeout)
 
-	return replicaset.Initiate(
+	err = replicaset.Initiate(
 		session,
 		memberHostPort,
 		mongo.ReplicaSetName,
@@ -81,4 +82,10 @@ func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string) e
 			jujuMachineKey: agent.BootstrapMachineId,
 		},
 	)
+	members, err := replicaset.CurrentMembers(session)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("xtian: replica set members: %#v\n", members)
+	return err
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/os/series"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -63,6 +64,7 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationmaster"
+	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
 )
@@ -73,13 +75,23 @@ type MachineSuite struct {
 
 var _ = gc.Suite(&MachineSuite{})
 
+func (s *MachineSuite) SetUpSuite(c *gc.C) {
+	args := peergrouper.InitiateMongoParams{
+		DialInfo:       jujutesting.MgoServer.DialInfo(),
+		MemberHostPort: jujutesting.MgoServer.Addr(),
+	}
+	err := peergrouper.InitiateMongoServer(args)
+	c.Assert(err, jc.ErrorIsNil)
+	s.commonMachineSuite.SetUpSuite(c)
+}
+
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.AuditingEnabled: true,
 		controller.CharmStoreURL:   "staging.charmstore",
-		// TODO(raftlease): setting this temporarily until the startup
-		// issue is resolved.
-		controller.Features: []interface{}{"legacy-leases"},
+		// // TODO(raftlease): setting this temporarily until the startup
+		// // issue is resolved.
+		// controller.Features: []interface{}{"legacy-leases"},
 	}
 	s.commonMachineSuite.SetUpTest(c)
 	// Most of these tests normally finish sub-second on a fast machine.
