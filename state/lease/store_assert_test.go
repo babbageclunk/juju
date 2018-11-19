@@ -34,7 +34,7 @@ func (s *StoreAssertSuite) SetUpTest(c *gc.C) {
 	s.FixtureSuite.SetUpTest(c)
 	s.fix = s.EasyFixture(c)
 	key := lease.Key{"default-namespace", "model-uuid", "name"}
-	err := s.fix.Store.ClaimLease(key, lease.Request{"holder", time.Minute})
+	err := s.fix.Store.ClaimLease(key, lease.Request{"holder", time.Minute}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key, s.fix.Holder(), "holder")
 }
@@ -53,7 +53,7 @@ func (s *StoreAssertSuite) TestPassesWhenLeaseStillHeldDespiteWriterChange(c *gc
 	info := s.fix.Store.Leases()[key("name")]
 
 	fix2 := s.NewFixture(c, FixtureParams{Id: "other-store"})
-	err := fix2.Store.ExtendLease(key("name"), lease.Request{"holder", time.Hour})
+	err := fix2.Store.ExtendLease(key("name"), lease.Request{"holder", time.Hour}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var ops []txn.Op
@@ -81,7 +81,7 @@ func (s *StoreAssertSuite) TestAbortsWhenLeaseVacant(c *gc.C) {
 	info := s.fix.Store.Leases()[key("name")]
 
 	s.fix.GlobalClock.Advance(time.Hour)
-	err := s.fix.Store.ExpireLease(key("name"))
+	err := s.fix.Store.ExpireLease(key("name"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var ops []txn.Op
