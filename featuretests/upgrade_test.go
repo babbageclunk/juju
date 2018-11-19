@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	pacman "github.com/juju/packaging/manager"
 	jc "github.com/juju/testing/checkers"
@@ -163,6 +164,8 @@ func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 
 func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrade(c *gc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1446885")
+	err := loggo.ConfigureLoggers("juju.worker.lease.raft=TRACE")
+	c.Assert(err, jc.ErrorIsNil)
 
 	// This test checks that the master triggers a downgrade if one of
 	// the other controller fails to signal it is ready for upgrade.

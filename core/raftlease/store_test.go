@@ -62,6 +62,7 @@ func (s *storeSuite) TestClaim(c *gc.C) {
 			err := s.store.ClaimLease(
 				lease.Key{"warframe", "rhino", "prime"},
 				lease.Request{"lotus", time.Second},
+				nil,
 			)
 			c.Assert(err, jc.ErrorIsNil)
 		},
@@ -93,6 +94,7 @@ func (s *storeSuite) TestClaimTimeout(c *gc.C) {
 				errChan <- s.store.ClaimLease(
 					lease.Key{"warframe", "vauban", "prime"},
 					lease.Request{"vor", time.Second},
+					nil,
 				)
 			}()
 			// Jump time forward further than the 1-second forward
@@ -122,12 +124,51 @@ func (s *storeSuite) TestClaimTimeout(c *gc.C) {
 	)
 }
 
+func (s *storeSuite) TestClaimCancelled(c *gc.C) {
+	s.handleHubRequest(c,
+		func() {
+			errChan := make(chan error)
+			cancel := make(chan struct{})
+			go func() {
+				errChan <- s.store.ClaimLease(
+					lease.Key{"warframe", "vauban", "prime"},
+					lease.Request{"vor", time.Second},
+					cancel,
+				)
+			}()
+			// Cancel the request.
+			close(cancel)
+
+			select {
+			case err := <-errChan:
+				c.Assert(err, jc.Satisfies, lease.IsCancelled)
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("timed out waiting for claim error")
+			}
+		},
+
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationClaim,
+			Namespace: "warframe",
+			ModelUUID: "vauban",
+			Lease:     "prime",
+			Holder:    "vor",
+			Duration:  time.Second,
+		},
+		func(req raftlease.ForwardRequest) {
+			// We never send a response, to trigger a timeout.
+		},
+	)
+}
+
 func (s *storeSuite) TestClaimInvalid(c *gc.C) {
 	s.handleHubRequest(c,
 		func() {
 			err := s.store.ClaimLease(
 				lease.Key{"warframe", "volt", "umbra"},
 				lease.Request{"maroo", 3 * time.Second},
+				nil,
 			)
 			c.Assert(err, jc.Satisfies, lease.IsInvalid)
 		},
@@ -161,6 +202,7 @@ func (s *storeSuite) TestExtend(c *gc.C) {
 			err := s.store.ExtendLease(
 				lease.Key{"warframe", "frost", "prime"},
 				lease.Request{"konzu", time.Second},
+				nil,
 			)
 			c.Assert(err, jc.ErrorIsNil)
 		},
@@ -187,6 +229,7 @@ func (s *storeSuite) TestExtend(c *gc.C) {
 func (s *storeSuite) TestExpire(c *gc.C) {
 	err := s.store.ExpireLease(
 		lease.Key{"warframe", "oberon", "prime"},
+		nil,
 	)
 	c.Assert(err, jc.Satisfies, lease.IsInvalid)
 }
@@ -233,6 +276,7 @@ func (s *storeSuite) TestPin(c *gc.C) {
 			err := s.store.PinLease(
 				lease.Key{"warframe", "frost", "prime"},
 				machine,
+				nil,
 			)
 			c.Assert(err, jc.ErrorIsNil)
 		},
@@ -261,6 +305,7 @@ func (s *storeSuite) TestUnpin(c *gc.C) {
 			err := s.store.UnpinLease(
 				lease.Key{"warframe", "frost", "prime"},
 				machine,
+				nil,
 			)
 			c.Assert(err, jc.ErrorIsNil)
 		},

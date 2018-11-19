@@ -15,22 +15,31 @@ import (
 // of Store are not expected to be goroutine-safe.
 type Store interface {
 
-	// ClaimLease records the supplied holder's claim to the supplied lease. If
-	// it succeeds, the claim is guaranteed until at least the supplied duration
-	// after the call to ClaimLease was initiated. If it returns ErrInvalid,
-	// check Leases() for updated state.
-	ClaimLease(lease Key, request Request) error
+	// ClaimLease records the supplied holder's claim to the supplied
+	// lease. If it succeeds, the claim is guaranteed until at least
+	// the supplied duration after the call to ClaimLease was
+	// initiated. If it returns ErrInvalid, check Leases() for updated
+	// state. If the result is no longer needed, the cancel chan
+	// passed in should be closed to immediately cancel the lease
+	// operation.
+	ClaimLease(lease Key, request Request, cancel <-chan struct{}) error
 
-	// ExtendLease records the supplied holder's continued claim to the supplied
-	// lease, if necessary. If it succeeds, the claim is guaranteed until at
-	// least the supplied duration after the call to ExtendLease was initiated.
-	// If it returns ErrInvalid, check Leases() for updated state.
-	ExtendLease(lease Key, request Request) error
+	// ExtendLease records the supplied holder's continued claim to
+	// the supplied lease, if necessary. If it succeeds, the claim is
+	// guaranteed until at least the supplied duration after the call
+	// to ExtendLease was initiated.  If it returns ErrInvalid, check
+	// Leases() for updated state. If the result is no longer needed,
+	// the cancel chan passed in should be closed to immediately
+	// cancel the lease operation.
+	ExtendLease(lease Key, request Request, cancel <-chan struct{}) error
 
-	// ExpireLease records the vacation of the supplied lease. It will fail if
-	// we cannot verify that the lease's writer considers the expiry time to
-	// have passed. If it returns ErrInvalid, check Leases() for updated state.
-	ExpireLease(lease Key) error
+	// ExpireLease records the vacation of the supplied lease. It will
+	// fail if we cannot verify that the lease's writer considers the
+	// expiry time to have passed. If it returns ErrInvalid, check
+	// Leases() for updated state. If the result is no longer needed,
+	// the cancel chan passed in should be closed to immediately
+	// cancel the lease operation.
+	ExpireLease(lease Key, cancel <-chan struct{}) error
 
 	// Leases returns a recent snapshot of lease state. Expiry times are
 	// expressed according to the Clock the store was configured with.
@@ -51,12 +60,16 @@ type Store interface {
 	// the recipient of the pin behaviour.
 	// The input entity denotes the party responsible for the
 	// pinning operation.
-	PinLease(lease Key, entity string) error
+	// If the result is no longer needed, the cancel chan passed in
+	// should be closed to immediately cancel the lease operation.
+	PinLease(lease Key, entity string, cancel <-chan struct{}) error
 
 	// Unpin reverses a Pin operation for the same key and entity.
 	// Normal expiry behaviour is restored when no entities remain with
 	// pins for the application.
-	UnpinLease(lease Key, entity string) error
+	// If the result is no longer needed, the cancel chan passed in
+	// should be closed to immediately cancel the lease operation.
+	UnpinLease(lease Key, entity string, cancel <-chan struct{}) error
 
 	// Pinned returns a snapshot of pinned leases.
 	// The return consists of each pinned lease and the collection of entities
@@ -151,6 +164,10 @@ var (
 	// a transient error due to changes in the cluster, and indicates that
 	// the operation should be retried.
 	ErrTimeout = errors.New("lease operation timed out")
+
+	// ErrCancelled is returned from an operation when it is cancelled
+	// by closing the cancel channel that was passed in.
+	ErrCancelled = errors.New("lease operation cancelled by client")
 )
 
 // IsInvalid returns whether the specified error represents ErrInvalid
@@ -163,4 +180,10 @@ func IsInvalid(err error) bool {
 // (even if it's wrapped).
 func IsTimeout(err error) bool {
 	return errors.Cause(err) == ErrTimeout
+}
+
+// IsCancelled returns whether the specified error represents
+// ErrCancelled (even if it's wrapped).
+func IsCancelled(err error) bool {
+	return errors.Cause(err) == ErrCancelled
 }

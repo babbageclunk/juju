@@ -47,7 +47,7 @@ func newLeaseStore(clock clock.Clock, target raftlease.NotifyTarget, trapdoor ra
 }
 
 // ClaimLease is part of lease.Store.
-func (s *leaseStore) ClaimLease(key lease.Key, req lease.Request) error {
+func (s *leaseStore) ClaimLease(key lease.Key, req lease.Request, cancel <-chan struct{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, found := s.entries[key]; found {
@@ -63,7 +63,7 @@ func (s *leaseStore) ClaimLease(key lease.Key, req lease.Request) error {
 }
 
 // ExtendLease is part of lease.Store.
-func (s *leaseStore) ExtendLease(key lease.Key, req lease.Request) error {
+func (s *leaseStore) ExtendLease(key lease.Key, req lease.Request, cancel <-chan struct{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, found := s.entries[key]
@@ -88,7 +88,7 @@ func (s *leaseStore) ExtendLease(key lease.Key, req lease.Request) error {
 }
 
 // Expire is part of lease.Store.
-func (s *leaseStore) ExpireLease(key lease.Key) error {
+func (s *leaseStore) ExpireLease(key lease.Key, cancel <-chan struct{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, found := s.entries[key]
@@ -125,12 +125,12 @@ func (s *leaseStore) Refresh() error {
 }
 
 // PinLease is part of lease.Store.
-func (s *leaseStore) PinLease(key lease.Key, entity string) error {
+func (s *leaseStore) PinLease(key lease.Key, entity string, cancel <-chan struct{}) error {
 	return errors.NotImplementedf("lease pinning")
 }
 
 // UnpinLease is part of lease.Store.
-func (s *leaseStore) UnpinLease(key lease.Key, entity string) error {
+func (s *leaseStore) UnpinLease(key lease.Key, entity string, cancel <-chan struct{}) error {
 	return errors.NotImplementedf("lease unpinning")
 }
 

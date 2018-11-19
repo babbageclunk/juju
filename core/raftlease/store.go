@@ -79,8 +79,8 @@ type Store struct {
 }
 
 // ClaimLease is part of lease.Store.
-func (s *Store) ClaimLease(key lease.Key, req lease.Request) error {
-	err := s.runOnLeader(&Command{
+func (s *Store) ClaimLease(key lease.Key, req lease.Request, cancel <-chan struct{}) error {
+	err := s.runOnLeader(cancel, &Command{
 		Version:   CommandVersion,
 		Operation: OperationClaim,
 		Namespace: key.Namespace,
@@ -93,8 +93,8 @@ func (s *Store) ClaimLease(key lease.Key, req lease.Request) error {
 }
 
 // ExtendLease is part of lease.Store.
-func (s *Store) ExtendLease(key lease.Key, req lease.Request) error {
-	return errors.Trace(s.runOnLeader(&Command{
+func (s *Store) ExtendLease(key lease.Key, req lease.Request, cancel <-chan struct{}) error {
+	return errors.Trace(s.runOnLeader(cancel, &Command{
 		Version:   CommandVersion,
 		Operation: OperationExtend,
 		Namespace: key.Namespace,
@@ -106,7 +106,7 @@ func (s *Store) ExtendLease(key lease.Key, req lease.Request) error {
 }
 
 // ExpireLease is part of lease.Store.
-func (s *Store) ExpireLease(key lease.Key) error {
+func (s *Store) ExpireLease(key lease.Key, cancel <-chan struct{}) error {
 	// It's always an invalid operation - expiration happens
 	// automatically when time is advanced.
 	return lease.ErrInvalid
@@ -130,13 +130,13 @@ func (s *Store) Refresh() error {
 }
 
 // PinLease is part of lease.Store.
-func (s *Store) PinLease(key lease.Key, entity string) error {
-	return errors.Trace(s.pinOp(OperationPin, key, entity))
+func (s *Store) PinLease(key lease.Key, entity string, cancel <-chan struct{}) error {
+	return errors.Trace(s.pinOp(OperationPin, key, entity, cancel))
 }
 
 // UnpinLease is part of lease.Store.
-func (s *Store) UnpinLease(key lease.Key, entity string) error {
-	return errors.Trace(s.pinOp(OperationUnpin, key, entity))
+func (s *Store) UnpinLease(key lease.Key, entity string, cancel <-chan struct{}) error {
+	return errors.Trace(s.pinOp(OperationUnpin, key, entity, cancel))
 }
 
 // Pinned is part of the Store interface.
@@ -144,8 +144,8 @@ func (s *Store) Pinned() map[lease.Key][]string {
 	return s.fsm.Pinned()
 }
 
-func (s *Store) pinOp(operation string, key lease.Key, entity string) error {
-	return errors.Trace(s.runOnLeader(&Command{
+func (s *Store) pinOp(operation string, key lease.Key, entity string, cancel <-chan struct{}) error {
+	return errors.Trace(s.runOnLeader(cancel, &Command{
 		Version:   CommandVersion,
 		Operation: operation,
 		Namespace: key.Namespace,
@@ -160,7 +160,7 @@ func (s *Store) Advance(duration time.Duration) error {
 	s.prevTimeMu.Lock()
 	defer s.prevTimeMu.Unlock()
 	newTime := s.prevTime.Add(duration)
-	err := s.runOnLeader(&Command{
+	err := s.runOnLeader(nil, &Command{
 		Version:   CommandVersion,
 		Operation: OperationSetTime,
 		OldTime:   s.prevTime,
@@ -179,7 +179,7 @@ func (s *Store) Advance(duration time.Duration) error {
 	return errors.Trace(err)
 }
 
-func (s *Store) runOnLeader(command *Command) error {
+func (s *Store) runOnLeader(cancel <-chan struct{}, command *Command) error {
 	bytes, err := command.Marshal()
 	if err != nil {
 		return errors.Trace(err)
@@ -213,6 +213,8 @@ func (s *Store) runOnLeader(command *Command) error {
 	}
 
 	select {
+	case <-cancel:
+		return lease.ErrCancelled
 	case <-s.config.Clock.After(s.config.ForwardTimeout):
 		return lease.ErrTimeout
 	case err := <-errChan:
