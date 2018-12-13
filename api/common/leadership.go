@@ -97,6 +97,13 @@ func (a *LeadershipPinningAPI) pinMachineAppsOps(callName string) (map[string]er
 		var appErr error
 		if res.Error != nil {
 			appErr = res.Error
+			// Convert the error back from an API error to a standard
+			// one. We can't use apiserver/common.RestoreError here
+			// because it introduces an import cycle - agent depends
+			// on this.
+			if params.IsCodeNotImplemented(appErr) {
+				appErr = errors.NotImplementedf(callName)
+			}
 		}
 		result[res.ApplicationName] = appErr
 	}

@@ -361,6 +361,13 @@ func (w *upgradeSeriesWorker) pinLeaders() (err error) {
 			w.logger.Infof("unpin leader for application %q", app)
 			continue
 		}
+		if errors.IsNotImplemented(err) {
+			// This controller is using the legacy lease store which
+			// doesn't support pinning. In that case we continue without
+			// pinning - all of the errors will be the same.
+			w.logger.Warningf("leadership pinning not suported for legacy leases")
+			break
+		}
 		w.logger.Errorf("failed to pin leader for application %q: %s", app, err.Error())
 		lastErr = err
 	}
@@ -385,6 +392,13 @@ func (w *upgradeSeriesWorker) unpinLeaders() error {
 		if err == nil {
 			w.logger.Infof("unpinned leader for application %q", app)
 			continue
+		}
+		if errors.IsNotImplemented(err) {
+			// This controller is using the legacy lease store which
+			// doesn't support pinning. In that case we continue without
+			// pinning - all of the errors will be the same.
+			w.logger.Warningf("leadership pinning not suported for legacy leases")
+			break
 		}
 		w.logger.Errorf("failed to unpin leader for application %q: %s", app, err.Error())
 		lastErr = err
