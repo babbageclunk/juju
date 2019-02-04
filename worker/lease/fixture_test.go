@@ -83,6 +83,9 @@ type Fixture struct {
 
 	// autoexpire is whether the store should autoexpire.
 	autoexpire bool
+
+	// maxLeasesAge is how long the manager should cache leases for between checks to
+	maxLeasesAge time.Duration
 }
 
 // RunTest sets up a Manager and a Clock and passes them into the supplied

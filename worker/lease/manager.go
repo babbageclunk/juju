@@ -127,6 +127,19 @@ type Manager struct {
 	// wg is used to ensure that all child goroutines are finished
 	// before we stop.
 	wg sync.WaitGroup
+
+	// currentLeases caches the leases for a second for processing
+	// blocks and determining when the next tick should be. Should
+	// only be accessed through the getter function so we can
+	// re-request it if it's stale.
+	currentLeases map[lease.Key]lease.Info
+
+	// leasesTime records when we last got leases.
+	leasesTime time.Time
+
+	// lastBlockCheck is when we last checked through the blocks to
+	// determine whether any need to be notified.
+	lastBlockCheck time.Time
 }
 
 // Kill is part of the worker.Worker interface.
@@ -137,6 +150,29 @@ func (manager *Manager) Kill() {
 // Wait is part of the worker.Worker interface.
 func (manager *Manager) Wait() error {
 	return manager.catacomb.Wait()
+}
+
+// leases returns store leases that are no older than the configured
+// age. If MaxLeasesAge is 0 it always gets fresh ones.
+func (manager *Manager) leases() (map[lease.Key]lease.Info, time.Time) {
+	now := manager.config.Clock.Now()
+	nextLeasesTime := manager.leasesTime.Add(manager.config.MaxLeasesAge)
+	if manager.config.MaxLeasesAge == 0 || nextLeasesTime.Before(now) {
+		manager.currentLeases = manager.config.Store.Leases()
+		manager.leasesTime = now
+	}
+	return manager.currentLeases, manager.leasesTime
+}
+
+// shouldCheckBlocks returns whether we need to recheck blocks because
+// the leases have been updated since we last checked them. If we've
+// been configured not to cache leases it always returns true.
+func (manager *Manager) shouldCheckBlocks(leasesTime time.Time) bool {
+	if manager.config.MaxLeasesAge == 0 || manager.lastBlockCheck.Before(leasesTime) {
+		manager.lastBlockCheck = leasesTime
+		return true
+	}
+	return false
 }
 
 // loop runs until the manager is stopped.
@@ -155,11 +191,13 @@ func (manager *Manager) loop() error {
 			return errors.Trace(err)
 		}
 
-		leases := manager.config.Store.Leases()
-		for leaseName := range blocks {
-			if _, found := leases[leaseName]; !found {
-				manager.config.Logger.Tracef("[%s] unblocking: %s", manager.logContext, leaseName)
-				blocks.unblock(leaseName)
+		leases, leasesTime := manager.leases()
+		if manager.shouldCheckBlocks(leasesTime) {
+			for leaseName := range blocks {
+				if _, found := leases[leaseName]; !found {
+					manager.config.Logger.Tracef("[%s] unblocking: %s", manager.logContext, leaseName)
+					blocks.unblock(leaseName)
+				}
 			}
 		}
 	}
@@ -173,8 +211,10 @@ func (manager *Manager) choose(blocks blocks) error {
 	case err := <-manager.errors:
 		return errors.Trace(err)
 	case check := <-manager.checks:
+		manager.config.Logger.Debugf("check")
 		return manager.handleCheck(check)
 	case manager.now = <-manager.nextTick(manager.now):
+		manager.config.Logger.Debugf("tick")
 		// If we need to expire leases we should do it, otherwise this
 		// is just an opportunity to check for blocks that need to be
 		// notified.
@@ -190,6 +230,7 @@ func (manager *Manager) choose(blocks blocks) error {
 	case unpin := <-manager.unpins:
 		manager.handleUnpin(unpin)
 	case block := <-manager.blocks:
+		manager.config.Logger.Debugf("block")
 		// TODO(raftlease): Include the other key items.
 		manager.config.Logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
 		blocks.add(block)
@@ -347,7 +388,7 @@ func (manager *Manager) handleCheck(check check) error {
 func (manager *Manager) nextTick(lastTick time.Time) <-chan time.Time {
 	now := manager.config.Clock.Now()
 	nextTick := now.Add(manager.config.MaxSleep)
-	leases := manager.config.Store.Leases()
+	leases, _ := manager.leases()
 	for _, info := range leases {
 		if !info.Expiry.After(lastTick) {
 			// The previous tick will expire this lease eventually, or

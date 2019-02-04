@@ -53,7 +53,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 		blockTest.assertBlocked(c)
 
 		// Trigger expiry.
-		clock.Advance(time.Second)
+		waitAdvance(c, clock, time.Second, 2)
 		err := blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})
@@ -217,7 +217,7 @@ func (s *WaitUntilExpiredSuite) TestCancelWait(c *gc.C) {
 type blockTest struct {
 	manager *lease.Manager
 	done    chan error
-	abort   <-chan time.Time
+	abort   <-chan struct{}
 	cancel  chan struct{}
 }
 
@@ -227,7 +227,7 @@ func newBlockTest(manager *lease.Manager, key corelease.Key) *blockTest {
 	bt := &blockTest{
 		manager: manager,
 		done:    make(chan error),
-		abort:   time.After(time.Second),
+		abort:   safeAfter(time.Second),
 		cancel:  make(chan struct{}),
 	}
 	claimer, err := bt.manager.Claimer(key.Namespace, key.ModelUUID)
@@ -263,4 +263,13 @@ func (bt *blockTest) assertUnblocked(c *gc.C) error {
 		c.Fatalf("timed out before unblocking")
 	}
 	panic("unreachable")
+}
+
+func safeAfter(d time.Duration) chan struct{} {
+	result := make(chan struct{})
+	go func() {
+		<-time.After(d)
+		close(result)
+	}()
+	return result
 }

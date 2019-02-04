@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/lease"
 )
 
@@ -382,6 +381,6 @@ func (s *ExpireSuite) TestExpire_Multiple(c *gc.C) {
 }
 
 func waitAdvance(c *gc.C, clock *testclock.Clock, amount time.Duration, waiters int) {
-	err := clock.WaitAdvance(amount, coretesting.LongWait, waiters)
+	err := clock.WaitAdvance(amount, time.Second, waiters)
 	c.Assert(err, jc.ErrorIsNil)
 }

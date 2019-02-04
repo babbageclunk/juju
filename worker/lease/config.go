@@ -62,6 +62,10 @@ type ManagerConfig struct {
 	// logging purposes.
 	EntityUUID string
 
+	// MaxLeasesAge is how long we'll cache leases for the purpose of
+	// checking for blocks that need to be alerted. Zero means no caching
+	MaxLeasesAge time.Duration
+
 	PrometheusRegisterer prometheus.Registerer
 }
 
@@ -82,6 +86,9 @@ func (config ManagerConfig) Validate() error {
 	}
 	if config.MaxSleep <= 0 {
 		return errors.NotValidf("non-positive MaxSleep")
+	}
+	if config.MaxLeasesAge < 0 {
+		return errors.NotValidf("negative MaxLeasesAge")
 	}
 	// TODO: make the PrometheusRegisterer required when we no longer
 	// have state workers managing leases.
