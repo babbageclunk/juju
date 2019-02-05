@@ -4,15 +4,22 @@
 package lease_test
 
 import (
+	"fmt"
+	"math"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/worker/lease"
 )
 
@@ -22,16 +29,18 @@ type perfSuite struct {
 
 var _ = gc.Suite(&perfSuite{})
 
+var logger = loggo.GetLogger("xtian.perf")
+
 func (s *perfSuite) TestClaims(c *gc.C) {
 	store := newLeaseStore(clock.WallClock, &nullTarget{}, nullTrapdoor)
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock: clock.WallClock,
 		Store: store,
 		Secretary: func(string) (lease.Secretary, error) {
-			return Secretary{}, nil
+			return &nullSecretary{}, nil
 		},
 		MaxSleep:             defaultMaxSleep,
-		Logger:               loggo.GetLogger("lease_test"),
+		Logger:               logger,
 		PrometheusRegisterer: noopRegisterer{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -43,38 +52,56 @@ func (s *perfSuite) TestClaims(c *gc.C) {
 
 	start := make(chan struct{})
 	stop := make(chan struct{})
-	samples := make(chan sample)
+	defer close(stop)
 
 	claimer, err := manager.Claimer("leadership", "a-model")
 	c.Assert(err, jc.ErrorIsNil)
 
-	for app := 0; app < 1000; app++ {
-		lease := fmt.Sprintf("app-%s", app)
-		for unit := 0; unit < 5; unit++ {
-			name := fmt.Sprintf("unit-%s-%s", app, unit)
-			w := &worker{
+	c.Logf("starting collector")
+	coll := newCollector(maxSamples, stop)
+	ready.Add(1)
+	stopped.Add(1)
+	go coll.run(&ready, &stopped)
+
+	c.Logf("starting applications")
+	for app := 0; app < totalApps; app++ {
+		lease := fmt.Sprintf("app-%d", app)
+		for unit := 0; unit < unitsPerApp; unit++ {
+			name := fmt.Sprintf("unit-%d-%d", app, unit)
+			w := &leaseGrabber{
 				start:   start,
-				stop:    stop,
+				stop:    coll.stopWorkers,
 				claimer: claimer,
 				lease:   lease,
 				name:    name,
-				samples: samples,
+				samples: coll.samples,
 			}
 			ready.Add(1)
 			stopped.Add(1)
-			go w.loop(&ready, &stopped)
+			go w.run(&ready, &stopped)
 		}
 	}
 
-	// Wait for all of the goroutines to be ready to go.
+	c.Logf("waiting for all goroutines to be ready")
 	ready.Wait()
+
+	c.Logf("starting workers")
 	close(start)
 
+	stopped.Wait()
+	manager.Kill()
+	err = manager.Wait()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Logf(coll.results())
 }
 
 var (
 	claimDuration = 10 * time.Second
 	reclaimSleep  = 5 * time.Second
+	totalApps     = 500
+	unitsPerApp   = 5
+	maxSamples    = 10000
 )
 
 type sample struct {
@@ -82,7 +109,7 @@ type sample struct {
 	value     time.Duration
 }
 
-type worker struct {
+type leaseGrabber struct {
 	start   <-chan struct{}
 	stop    <-chan struct{}
 	claimer corelease.Claimer
@@ -91,49 +118,57 @@ type worker struct {
 	samples chan<- sample
 }
 
-func (w *worker) run(ready, stopped *sync.WaitGroup) {
-	readyGroup.Done()
+func (w *leaseGrabber) run(ready, stopped *sync.WaitGroup) {
+	ready.Done()
 	defer stopped.Done()
-	<-start
+	<-w.start
+	state := "candidate"
 	for {
-		startTime := time.Now()
-		err := w.claimer.Claim(w.lease, w.name, claimDuration)
-		endTime := time.Now()
-		if err == corelease.ErrClaimDenied {
-			w.record("claim-failed", startTime, endTime)
-
+		switch state {
+		case "candidate":
+			startTime := time.Now()
+			err := w.claimer.Claim(w.lease, w.name, claimDuration)
+			endTime := time.Now()
+			if err == corelease.ErrClaimDenied {
+				w.record("claim-failed", startTime, endTime)
+				state = "follower"
+				continue
+			} else if err != nil {
+				panic(err)
+			}
+			w.record("claim-succeeded", startTime, endTime)
+			state = "leader"
+		case "leader":
+			select {
+			case <-w.stop:
+				return
+			case <-time.After(reclaimSleep):
+				startTime := time.Now()
+				err := w.claimer.Claim(w.lease, w.name, claimDuration)
+				endTime := time.Now()
+				if err == corelease.ErrClaimDenied {
+					w.record("extend-failed", startTime, endTime)
+					state = "follower"
+					continue
+				} else if err != nil {
+					panic(err)
+				}
+				state = "leader"
+				w.record("extend-succeeded", startTime, endTime)
+			}
+		case "follower":
 			err := w.claimer.WaitUntilExpired(w.lease, w.stop)
 			if err == corelease.ErrWaitCancelled {
 				return
 			} else if err != nil {
 				panic(err)
 			}
-			continue
-		} else if err != nil {
-			panic(err)
-		} else {
-			w.record("claim-succeeded", startTime, endTime)
-			for {
-				select {
-				case <-stop:
-					return
-				case <-time.After(reclaimSleep):
-					startTime = time.Now()
-					err := w.claimer.Claim(w.lease, w.name, claimDuration)
-					endTime = time.Now()
-					if err == corelease.ErrClaimDenied {
-						panic("lost lease")
-					} else if err != nil {
-						panic(err)
-					}
-					w.record("extend-succeeded", startTime, endTime)
-				}
-			}
+			state = "candidate"
 		}
 	}
 }
 
-func (w *worker) record(event string, start, end time.Time) {
+func (w *leaseGrabber) record(event string, start, end time.Time) {
 	s := sample{event, end.Sub(start)}
 	select {
 	case <-w.stop:
@@ -141,12 +176,114 @@ func (w *worker) record(event string, start, end time.Time) {
 	}
 }
 
+type totals struct {
+	count int
+	max   time.Duration
+	min   time.Duration
+	mean  float64
+	m2    float64
+}
+
+func (t *totals) update(val time.Duration) {
+	t.count++
+	if val > t.max {
+		t.max = val
+	}
+	if val < t.min {
+		t.min = val
+	}
+	floatVal := float64(val)
+	// From Welford's algorithm for calculating online variance.
+	// https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm
+	delta := floatVal - t.mean
+	t.mean += delta / float64(t.count)
+	delta2 := floatVal - t.mean
+	t.m2 += delta * delta2
+}
+
+func (t *totals) String() string {
+	return fmt.Sprintf("%8d\t%8s\t%14s\t%14s\t%14s",
+		t.count, t.min, t.max, time.Duration(t.mean), time.Duration(t.stddev()),
+	)
+}
+
+func (t totals) stddev() float64 {
+	if t.count == 0 {
+		return 0
+	}
+	return math.Sqrt(t.m2 / float64(t.count))
+}
+
+func newCollector(maxSamples int, abort chan struct{}) *collector {
+	return &collector{
+		maxSamples:  maxSamples,
+		samples:     make(chan sample, maxSamples),
+		stopWorkers: make(chan struct{}),
+		abort:       abort,
+		data: map[string]*totals{
+			"claim-failed":     {},
+			"claim-succeeded":  {},
+			"extend-failed":    {},
+			"extend-succeeded": {},
+		},
+	}
+}
+
+type collector struct {
+	maxSamples  int
+	sampleCount int
+	samples     chan sample
+	// We close this to stop the worker goroutines.
+	stopWorkers chan struct{}
+	// If someone closes this we stop.
+	abort chan struct{}
+	data  map[string]*totals
+}
+
+func (c *collector) run(ready, stopped *sync.WaitGroup) {
+	ready.Done()
+	defer stopped.Done()
+	defer close(c.stopWorkers)
+	for {
+		select {
+		case <-c.abort:
+			return
+		case sample := <-c.samples:
+			c.sampleCount++
+			t, ok := c.data[sample.operation]
+			if !ok {
+				panic(sample.operation)
+			}
+			t.update(sample.value)
+		}
+		if c.sampleCount >= c.maxSamples {
+			logger.Debugf("%d samples, stopping", c.sampleCount)
+			return
+		}
+		if c.sampleCount%500 == 0 {
+			logger.Debugf("%d samples", c.sampleCount)
+		}
+	}
+}
+
+func (c *collector) results() string {
+	var lines []string
+	for name, t := range c.data {
+		line := fmt.Sprintf("%-20s\t%s", name, t)
+		lines = append(lines, line)
+	}
+	sort.Strings(lines)
+	headers := "                    \t   count\t     min\t           max\t           avg\t        stddev"
+	lines = append([]string{headers}, lines...)
+	return strings.Join(lines, "\n")
+}
+
 // leaseStore implements lease.Store as simply as possible for use in
 // the dummy provider. Heavily cribbed from raftlease.FSM.
 type leaseStore struct {
 	mu       sync.Mutex
 	clock    clock.Clock
-	entries  map[lease.Key]*entry
+	entries  map[corelease.Key]*entry
 	trapdoor raftlease.TrapdoorFunc
 	target   raftlease.NotifyTarget
 }
@@ -167,7 +304,7 @@ type entry struct {
 func newLeaseStore(clock clock.Clock, target raftlease.NotifyTarget, trapdoor raftlease.TrapdoorFunc) *leaseStore {
 	return &leaseStore{
 		clock:    clock,
-		entries:  make(map[lease.Key]*entry),
+		entries:  make(map[corelease.Key]*entry),
 		target:   target,
 		trapdoor: trapdoor,
 	}
@@ -177,11 +314,11 @@ func newLeaseStore(clock clock.Clock, target raftlease.NotifyTarget, trapdoor ra
 func (*leaseStore) Autoexpire() bool { return false }
 
 // ClaimLease is part of lease.Store.
-func (s *leaseStore) ClaimLease(key lease.Key, req lease.Request) error {
+func (s *leaseStore) ClaimLease(key corelease.Key, req corelease.Request) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, found := s.entries[key]; found {
-		return lease.ErrInvalid
+		return corelease.ErrInvalid
 	}
 	s.entries[key] = &entry{
 		holder:   req.Holder,
@@ -193,15 +330,15 @@ func (s *leaseStore) ClaimLease(key lease.Key, req lease.Request) error {
 }
 
 // ExtendLease is part of lease.Store.
-func (s *leaseStore) ExtendLease(key lease.Key, req lease.Request) error {
+func (s *leaseStore) ExtendLease(key corelease.Key, req corelease.Request) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, found := s.entries[key]
 	if !found {
-		return lease.ErrInvalid
+		return corelease.ErrInvalid
 	}
 	if entry.holder != req.Holder {
-		return lease.ErrInvalid
+		return corelease.ErrInvalid
 	}
 	now := s.clock.Now()
 	expiry := now.Add(req.Duration)
@@ -218,16 +355,16 @@ func (s *leaseStore) ExtendLease(key lease.Key, req lease.Request) error {
 }
 
 // Expire is part of lease.Store.
-func (s *leaseStore) ExpireLease(key lease.Key) error {
+func (s *leaseStore) ExpireLease(key corelease.Key) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, found := s.entries[key]
 	if !found {
-		return lease.ErrInvalid
+		return corelease.ErrInvalid
 	}
 	expiry := entry.start.Add(entry.duration)
 	if !s.clock.Now().After(expiry) {
-		return lease.ErrInvalid
+		return corelease.ErrInvalid
 	}
 	delete(s.entries, key)
 	s.target.Expired(key)
@@ -235,11 +372,11 @@ func (s *leaseStore) ExpireLease(key lease.Key) error {
 }
 
 // Leases is part of lease.Store.
-func (s *leaseStore) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
+func (s *leaseStore) Leases(keys ...corelease.Key) map[corelease.Key]corelease.Info {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	filter := make(map[lease.Key]bool)
+	filter := make(map[corelease.Key]bool)
 	filtering := len(keys) > 0
 	if filtering {
 		for _, key := range keys {
@@ -247,13 +384,13 @@ func (s *leaseStore) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
 		}
 	}
 
-	results := make(map[lease.Key]lease.Info)
+	results := make(map[corelease.Key]corelease.Info)
 	for key, entry := range s.entries {
 		if filtering && !filter[key] {
 			continue
 		}
 
-		results[key] = lease.Info{
+		results[key] = corelease.Info{
 			Holder:   entry.holder,
 			Expiry:   entry.start.Add(entry.duration),
 			Trapdoor: s.trapdoor(key, entry.holder),
@@ -268,17 +405,17 @@ func (s *leaseStore) Refresh() error {
 }
 
 // PinLease is part of lease.Store.
-func (s *leaseStore) PinLease(key lease.Key, entity string) error {
+func (s *leaseStore) PinLease(key corelease.Key, entity string) error {
 	return errors.NotImplementedf("lease pinning")
 }
 
 // UnpinLease is part of lease.Store.
-func (s *leaseStore) UnpinLease(key lease.Key, entity string) error {
+func (s *leaseStore) UnpinLease(key corelease.Key, entity string) error {
 	return errors.NotImplementedf("lease unpinning")
 }
 
 // Pinned is part of the Store interface.
-func (s *leaseStore) Pinned() map[lease.Key][]string {
+func (s *leaseStore) Pinned() map[corelease.Key][]string {
 	return nil
 }
 
@@ -290,3 +427,10 @@ func (*nullTarget) Expired(corelease.Key)         {}
 func nullTrapdoor(corelease.Key, string) corelease.Trapdoor {
 	return nil
 }
+
+// nullSecretary implements lease.Secretary but doesn't do any checks.
+type nullSecretary struct{}
+
+func (nullSecretary) CheckLease(key corelease.Key) error         { return nil }
+func (nullSecretary) CheckHolder(name string) error              { return nil }
+func (nullSecretary) CheckDuration(duration time.Duration) error { return nil }
