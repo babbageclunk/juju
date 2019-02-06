@@ -104,6 +104,8 @@ var (
 	maxSamples    = 10000
 )
 
+var maxDuration = 24 * time.Hour
+
 type sample struct {
 	operation string
 	value     time.Duration
@@ -176,6 +178,12 @@ func (w *leaseGrabber) record(event string, start, end time.Time) {
 	}
 }
 
+func newTotals() *totals {
+	return &totals{
+		min: maxDuration,
+	}
+}
+
 type totals struct {
 	count int
 	max   time.Duration
@@ -202,8 +210,12 @@ func (t *totals) update(val time.Duration) {
 }
 
 func (t *totals) String() string {
+	min := t.min
+	if min == maxDuration {
+		min = 0
+	}
 	return fmt.Sprintf("%8d\t%8s\t%14s\t%14s\t%14s",
-		t.count, t.min, t.max, time.Duration(t.mean), time.Duration(t.stddev()),
+		t.count, min, t.max, time.Duration(t.mean), time.Duration(t.stddev()),
 	)
 }
 
@@ -221,10 +233,10 @@ func newCollector(maxSamples int, abort chan struct{}) *collector {
 		stopWorkers: make(chan struct{}),
 		abort:       abort,
 		data: map[string]*totals{
-			"claim-failed":     {},
-			"claim-succeeded":  {},
-			"extend-failed":    {},
-			"extend-succeeded": {},
+			"claim-failed":     newTotals(),
+			"claim-succeeded":  newTotals(),
+			"extend-failed":    newTotals(),
+			"extend-succeeded": newTotals(),
 		},
 	}
 }
