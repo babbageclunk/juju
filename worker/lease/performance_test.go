@@ -6,6 +6,7 @@ package lease_test
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"sort"
 	"strings"
 	"sync"
@@ -32,6 +33,7 @@ var _ = gc.Suite(&perfSuite{})
 var logger = loggo.GetLogger("xtian.perf")
 
 func (s *perfSuite) TestClaims(c *gc.C) {
+	rand.Seed(time.Now().UTC().UnixNano())
 	store := newLeaseStore(clock.WallClock, &nullTarget{}, nullTrapdoor)
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock: clock.WallClock,
@@ -99,7 +101,7 @@ func (s *perfSuite) TestClaims(c *gc.C) {
 var (
 	claimDuration = 10 * time.Second
 	reclaimSleep  = 5 * time.Second
-	totalApps     = 500
+	totalApps     = 425
 	unitsPerApp   = 5
 	maxSamples    = 10000
 )
@@ -128,6 +130,13 @@ func (w *leaseGrabber) run(ready, stopped *sync.WaitGroup) {
 	for {
 		switch state {
 		case "candidate":
+			// Wait up to half a second before claiming.
+			jitter := time.Duration(float32(time.Second) * (rand.Float32() / 2.0))
+			select {
+			case <-w.stop:
+				return
+			case <-time.After(jitter):
+			}
 			startTime := time.Now()
 			err := w.claimer.Claim(w.lease, w.name, claimDuration)
 			endTime := time.Now()
