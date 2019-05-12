@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/controllerport"
+	"github.com/juju/juju/worker/crasher"
 	"github.com/juju/juju/worker/credentialvalidator"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
@@ -900,6 +901,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:    loggo.GetLogger("juju.worker.legacyleasesenabled"),
 			NewWorker: featureflag.NewWorker,
 		})),
+
+		crasherName: crasher.Manifold(crasher.ManifoldConfig{
+			Name: "crasher",
+		}),
 	}
 
 	manifolds[upgradeSeriesWorkerName] = ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
@@ -1040,4 +1045,5 @@ const (
 	raftForwarderName = "raft-forwarder"
 
 	validCredentialFlagName = "valid-credential-flag"
+	crasherName             = "crasher"
 )
