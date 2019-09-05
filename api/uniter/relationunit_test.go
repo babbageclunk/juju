@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -200,14 +202,25 @@ func (s *relationUnitSuite) TestApplicationSettings(c *gc.C) {
 	err := wpRelUnit.EnterScope(settings)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, true)
-	// TODO(jam) 2019-07-25:
-	//  we need a way to set application settings in the database before we can
-	//  test this properly.
-	wpRelUnit.Settings()
+
+	appSettings := map[string]interface{}{
+		"python": "soundmeter",
+	}
+	err = s.stateRelation.UpdateApplicationSettings(s.wordpressApplication, &fakeToken{}, appSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Our unit needs to be the leader for the API to allow getting
+	// the application settings.
+	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = claimer.Claim("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
 	gotSettings, err := apiRelUnit.ApplicationSettings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{})
-
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"python": "soundmeter",
+	})
 }
 
 func (s *relationUnitSuite) TestReadSettings(c *gc.C) {
@@ -259,6 +272,48 @@ func (s *relationUnitSuite) TestReadSettingsInvalidUnitTag(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "\"mysql\" is not a valid unit")
 }
 
+func (s *relationUnitSuite) TestReadApplicationSettings(c *gc.C) {
+	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = myRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, myRelUnit, true)
+
+	// Try reading - should be ok.
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	s.assertInScope(c, wpRelUnit, false)
+	gotSettings, err := apiRelUnit.ReadApplicationSettings("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings, gc.HasLen, 0)
+
+	// Now update the application settings
+	settings := map[string]interface{}{
+		"some":  "settings",
+		"other": "things",
+	}
+	s.stateRelation.UpdateApplicationSettings(s.mysqlApplication, &fakeToken{}, settings)
+	c.Assert(err, jc.ErrorIsNil)
+	gotSettings, err = apiRelUnit.ReadApplicationSettings("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings, gc.DeepEquals, params.Settings{
+		"some":  "settings",
+		"other": "things",
+	})
+}
+
+func (s *relationUnitSuite) TestReadApplicationSettingsInvalidApplicationTag(c *gc.C) {
+	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = myRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, myRelUnit, true)
+
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	s.assertInScope(c, wpRelUnit, false)
+	_, err = apiRelUnit.ReadApplicationSettings("mysql/0")
+	c.Assert(err, gc.ErrorMatches, `"mysql/0" is not a valid application`)
+}
+
 func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	// Enter scope with mysqlUnit.
 	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
@@ -295,6 +350,10 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	err = myRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+}
+
+func (s *relationUnitSuite) TestWatchApplicationSettings(c *gc.C) {
+	c.Fatalf("writeme")
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForUnit(c *gc.C) {
@@ -358,4 +417,16 @@ func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplication(c *g
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplicationNotLeader(c *gc.C) {
+}
+
+// fakeToken implements leadership.Token.
+type fakeToken struct {
+	err error
+}
+
+// Check is part of the leadership.Token interface. It returns its
+// contained error (which defaults to nil), and never checks or writes
+// the userdata.
+func (t *fakeToken) Check(int, interface{}) error {
+	return t.err
 }

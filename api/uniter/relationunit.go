@@ -134,20 +134,13 @@ func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
 			Unit:     appTag.String(),
 		}},
 	}
-	// TODO(jam): 2019-07-25 This isn't actually supported by the API yet, so we
-	//  just always return an empty settings result.
-
-	// err = ru.st.facade.FacadeCall("ReadSettings", args, &results)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if len(results.Results) != 1 {
-	// 	return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	// }
-	// TODO: Remove this
-	_ = args
-	results.Results = append(results.Results, params.SettingsResult{})
-
+	err = ru.st.facade.FacadeCall("ReadSettings", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
 	result := results.Results[0]
 	if result.Error != nil {
 		return nil, result.Error
@@ -155,18 +148,9 @@ func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
 	return newSettings(ru.st, ru.relation.tag.String(), appTag.String(), result.Settings), nil
 }
 
-// ReadSettings returns a map holding the settings of the unit with the
-// supplied name within this relation. An error will be returned if the
-// relation no longer exists, or if the unit's application is not part of the
-// relation, or the settings are invalid; but mere non-existence of the
-// unit is not grounds for an error, because the unit settings are
-// guaranteed to persist for the lifetime of the relation, regardless
-// of the lifetime of the unit.
-func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
-	if !names.IsValidUnit(uname) {
-		return nil, errors.Errorf("%q is not a valid unit", uname)
-	}
-	tag := names.NewUnitTag(uname)
+// readSettings returns the settings for either a unit or application
+// tag.
+func (ru *RelationUnit) readSettings(tag names.Tag) (params.Settings, error) {
 	var results params.SettingsResults
 	args := params.RelationUnitPairs{
 		RelationUnitPairs: []params.RelationUnitPair{{
@@ -187,6 +171,32 @@ func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
 		return nil, result.Error
 	}
 	return result.Settings, nil
+}
+
+// ReadSettings returns a map holding the settings of the unit with the
+// supplied name within this relation. An error will be returned if the
+// relation no longer exists, or if the unit's application is not part of the
+// relation, or the settings are invalid; but mere non-existence of the
+// unit is not grounds for an error, because the unit settings are
+// guaranteed to persist for the lifetime of the relation, regardless
+// of the lifetime of the unit.
+func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
+	if !names.IsValidUnit(uname) {
+		return nil, errors.Errorf("%q is not a valid unit", uname)
+	}
+	return ru.readSettings(names.NewUnitTag(uname))
+}
+
+// ReadApplicationSettings returns a map holding the settings of the
+// application with the supplied name within this relation. An error
+// will be returned if the relation no longer exists, or if the
+// application is not part of the relation, or the settings are
+// invalid.
+func (ru *RelationUnit) ReadApplicationSettings(appName string) (params.Settings, error) {
+	if !names.IsValidApplication(appName) {
+		return nil, errors.Errorf("%q is not a valid application", appName)
+	}
+	return ru.readSettings(names.NewApplicationTag(appName))
 }
 
 // UpdateRelationSettings is used to record any changes to settings for this unit and/or application.
