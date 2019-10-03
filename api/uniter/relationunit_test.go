@@ -7,6 +7,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
@@ -353,7 +354,95 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 }
 
 func (s *relationUnitSuite) TestWatchApplicationSettings(c *gc.C) {
-	c.Fatalf("writeme")
+	// Enter scope with wordpressUnit.
+	wpRelUnit, err := s.stateRelation.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = wpRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+
+	apiRel, err := s.uniter.Relation(s.stateRelation.Tag().(names.RelationTag))
+	c.Assert(err, jc.ErrorIsNil)
+	apiUnit, err := s.uniter.Unit(names.NewUnitTag("wordpress/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	apiRelUnit, err := apiRel.Unit(apiUnit)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We just created the wordpress unit, make sure its event isn't still in the queue
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
+	w, err := apiRelUnit.WatchApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
+	// Initial event.
+	wc.AssertOneChange()
+
+	// Changing the application settings for mysql notifies.
+	err = s.stateRelation.UpdateApplicationSettings(s.mysqlApplication, &fakeToken{}, map[string]interface{}{
+		"twin-fantasy": "nervous young inhumans",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Changing the settings for wordpress doesn't.
+	err = s.stateRelation.UpdateApplicationSettings(s.wordpressApplication, &fakeToken{}, map[string]interface{}{
+		"abbey-road": "here comes the sun",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}
+
+func (s *relationUnitSuite) TestWatchApplicationSettingsPeerRelation(c *gc.C) {
+	// Use riak for peer relation - the test mysql charm doesn't have
+	// a peer endpoint.
+	_, riak, _, unit := s.addMachineAppCharmAndUnit(c, "riak")
+	relations, err := riak.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relations, gc.HasLen, 1)
+	peerRelation := relations[0]
+	relUnit, err := peerRelation.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+
+	connection := s.OpenAPIAs(c, unit.Tag(), password)
+	uniter, err := connection.Uniter()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uniter, gc.NotNil)
+
+	apiRel, err := uniter.Relation(peerRelation.Tag().(names.RelationTag))
+	c.Assert(err, jc.ErrorIsNil)
+	apiUnit, err := uniter.Unit(names.NewUnitTag("riak/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	apiRelUnit, err := apiRel.Unit(apiUnit)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
+	w, err := apiRelUnit.WatchApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
+	// Initial event.
+	wc.AssertOneChange()
+
+	// Changing the application settings for mysql notifies.
+	err = peerRelation.UpdateApplicationSettings(riak, &fakeToken{}, map[string]interface{}{
+		"abbey-road": "something",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForUnit(c *gc.C) {

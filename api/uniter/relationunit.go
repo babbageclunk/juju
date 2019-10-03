@@ -253,3 +253,12 @@ func (ru *RelationUnit) UpdateRelationSettings(unit, application params.Settings
 func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
 	return ru.st.WatchRelationUnits(ru.relation.tag, ru.unit.tag)
 }
+
+// WatchApplicationSettings returns a watcher that notifies of changes
+// to the counterpart application's settings.
+func (ru *RelationUnit) WatchApplicationSettings() (watcher.NotifyWatcher, error) {
+	return ru.st.WatchRelationApplicationSettings(
+		ru.relation.tag,
+		names.NewApplicationTag(ru.relation.OtherApplication()),
+	)
+}
