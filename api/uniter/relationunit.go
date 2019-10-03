@@ -187,57 +187,26 @@ func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
 	return ru.readSettings(names.NewUnitTag(uname))
 }
 
-// ReadApplicationSettings returns a map holding the settings of the
-// application with the supplied name within this relation. An error
-// will be returned if the relation no longer exists, or if the
-// application is not part of the relation, or the settings are
-// invalid.
-func (ru *RelationUnit) ReadApplicationSettings(appName string) (params.Settings, error) {
-	if !names.IsValidApplication(appName) {
-		return nil, errors.Errorf("%q is not a valid application", appName)
-	}
-	return ru.readSettings(names.NewApplicationTag(appName))
+// OtherApplicationSettings returns a map holding the settings of the
+// application on the other end of this relation.
+func (ru *RelationUnit) OtherApplicationSettings() (params.Settings, error) {
+	return ru.readSettings(names.NewApplicationTag(ru.relation.OtherApplication()))
 }
 
 // UpdateRelationSettings is used to record any changes to settings for this unit and/or application.
 // It is only valid to update application settings if this unit is the leader, otherwise
 // it is a NotLeader error. Note that either unit or application is allowed to be nil.
 func (ru *RelationUnit) UpdateRelationSettings(unit, application params.Settings) error {
-	// TODO(jam) 2019-07-25: When the new API is written that gives us both updates in one
-	//  request, use it. For now, approximate it with 2 update calls.
 	var result params.ErrorResults
-	appName, err := names.UnitApplication(ru.unit.Name())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	appTag := names.NewApplicationTag(appName)
 	args := params.RelationUnitsSettings{
 		RelationUnits: []params.RelationUnitSettings{{
-			Relation: ru.relation.tag.String(),
-			Unit:     appTag.String(),
-			Settings: unit,
+			Relation:            ru.relation.tag.String(),
+			Unit:                ru.unit.tag.String(),
+			Settings:            unit,
+			ApplicationSettings: application,
 		}},
 	}
-	// TODO(jam): 2019-07-24 Implement support for UpdateSettings and Application settings.
-	//  This might just be UpdateSettings taking an application tag, or we might
-	//  want a different API.
-	/// We know this isn't suppported by the API yet anyway.
-	/// err = ru.st.facade.FacadeCall("UpdateSettings", args, &result)
-	/// if err != nil {
-	/// 	return errors.Trace(err)
-	/// }
-	/// err = result.OneError()
-	/// if err != nil {
-	/// 	return errors.Trace(err)
-	/// }
-	args = params.RelationUnitsSettings{
-		RelationUnits: []params.RelationUnitSettings{{
-			Relation: ru.relation.tag.String(),
-			Unit:     ru.unit.tag.String(),
-			Settings: unit,
-		}},
-	}
-	err = ru.st.facade.FacadeCall("UpdateSettings", args, &result)
+	err := ru.st.facade.FacadeCall("UpdateSettings", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -254,9 +223,9 @@ func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
 	return ru.st.WatchRelationUnits(ru.relation.tag, ru.unit.tag)
 }
 
-// WatchApplicationSettings returns a watcher that notifies of changes
+// WatchOtherApplicationSettings returns a watcher that notifies of changes
 // to the counterpart application's settings.
-func (ru *RelationUnit) WatchApplicationSettings() (watcher.NotifyWatcher, error) {
+func (ru *RelationUnit) WatchOtherApplicationSettings() (watcher.NotifyWatcher, error) {
 	return ru.st.WatchRelationApplicationSettings(
 		ru.relation.tag,
 		names.NewApplicationTag(ru.relation.OtherApplication()),

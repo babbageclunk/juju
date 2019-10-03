@@ -273,7 +273,7 @@ func (s *relationUnitSuite) TestReadSettingsInvalidUnitTag(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "\"mysql\" is not a valid unit")
 }
 
-func (s *relationUnitSuite) TestReadApplicationSettings(c *gc.C) {
+func (s *relationUnitSuite) TestOtherApplicationSettings(c *gc.C) {
 	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	err = myRelUnit.EnterScope(nil)
@@ -283,7 +283,7 @@ func (s *relationUnitSuite) TestReadApplicationSettings(c *gc.C) {
 	// Try reading - should be ok.
 	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
 	s.assertInScope(c, wpRelUnit, false)
-	gotSettings, err := apiRelUnit.ReadApplicationSettings("mysql")
+	gotSettings, err := apiRelUnit.OtherApplicationSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotSettings, gc.HasLen, 0)
 
@@ -294,25 +294,12 @@ func (s *relationUnitSuite) TestReadApplicationSettings(c *gc.C) {
 	}
 	s.stateRelation.UpdateApplicationSettings(s.mysqlApplication, &fakeToken{}, settings)
 	c.Assert(err, jc.ErrorIsNil)
-	gotSettings, err = apiRelUnit.ReadApplicationSettings("mysql")
+	gotSettings, err = apiRelUnit.OtherApplicationSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotSettings, gc.DeepEquals, params.Settings{
 		"some":  "settings",
 		"other": "things",
 	})
-}
-
-func (s *relationUnitSuite) TestReadApplicationSettingsInvalidApplicationTag(c *gc.C) {
-	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = myRelUnit.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, myRelUnit, true)
-
-	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
-	s.assertInScope(c, wpRelUnit, false)
-	_, err = apiRelUnit.ReadApplicationSettings("mysql/0")
-	c.Assert(err, gc.ErrorMatches, `"mysql/0" is not a valid application`)
 }
 
 func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
@@ -371,7 +358,7 @@ func (s *relationUnitSuite) TestWatchApplicationSettings(c *gc.C) {
 	// We just created the wordpress unit, make sure its event isn't still in the queue
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
-	w, err := apiRelUnit.WatchApplicationSettings()
+	w, err := apiRelUnit.WatchOtherApplicationSettings()
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
@@ -428,7 +415,7 @@ func (s *relationUnitSuite) TestWatchApplicationSettingsPeerRelation(c *gc.C) {
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
-	w, err := apiRelUnit.WatchApplicationSettings()
+	w, err := apiRelUnit.WatchOtherApplicationSettings()
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
@@ -497,15 +484,156 @@ func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitWithDelete(c *gc.C)
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForApplication(c *gc.C) {
+	err := s.stateRelation.UpdateApplicationSettings(s.wordpressApplication, &fakeToken{}, map[string]interface{}{
+		"black-midi": "of schlagenheim",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	err = wpRelUnit.EnterScope(map[string]interface{}{
+		"some":  "settings",
+		"other": "things",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+
+	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = claimer.Claim("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotSettings, err := apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"some":  "settings",
+		"other": "things",
+	})
+
+	gotSettings, err = apiRelUnit.ApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"black-midi": "of schlagenheim",
+	})
+
+	c.Assert(apiRelUnit.UpdateRelationSettings(nil, params.Settings{
+		"black-midi":        "",
+		"car-seat-headrest": "beach life-in-death",
+	}), jc.ErrorIsNil)
+	gotSettings, err = apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"some":  "settings",
+		"other": "things",
+	})
+
+	gotSettings, err = apiRelUnit.ApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"car-seat-headrest": "beach life-in-death",
+	})
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForApplicationNotLeader(c *gc.C) {
+	err := s.stateRelation.UpdateApplicationSettings(s.wordpressApplication, &fakeToken{}, map[string]interface{}{
+		"black-midi": "of schlagenheim",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	err = wpRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+
+	err = apiRelUnit.UpdateRelationSettings(nil, params.Settings{
+		"black-midi":        "",
+		"car-seat-headrest": "beach life-in-death",
+	})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplication(c *gc.C) {
+	err := s.stateRelation.UpdateApplicationSettings(s.wordpressApplication, &fakeToken{}, map[string]interface{}{
+		"black-midi": "of schlagenheim",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	err = wpRelUnit.EnterScope(map[string]interface{}{
+		"some":  "settings",
+		"other": "things",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+
+	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = claimer.Claim("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotSettings, err := apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"some":  "settings",
+		"other": "things",
+	})
+
+	gotSettings, err = apiRelUnit.ApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"black-midi": "of schlagenheim",
+	})
+
+	c.Assert(apiRelUnit.UpdateRelationSettings(nil, params.Settings{
+		"black-midi":        "",
+		"car-seat-headrest": "beach life-in-death",
+	}), jc.ErrorIsNil)
+	gotSettings, err = apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"some":  "settings",
+		"other": "things",
+	})
+
+	gotSettings, err = apiRelUnit.ApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"car-seat-headrest": "beach life-in-death",
+	})
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplicationNotLeader(c *gc.C) {
+	err := s.stateRelation.UpdateApplicationSettings(s.wordpressApplication, &fakeToken{}, map[string]interface{}{
+		"black-midi": "of schlagenheim",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	err = wpRelUnit.EnterScope(map[string]interface{}{
+		"king-gizzard": "hell",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+
+	err = apiRelUnit.UpdateRelationSettings(params.Settings{
+		"king-gizzard": "planet b",
+	}, params.Settings{
+		"black-midi":        "",
+		"car-seat-headrest": "beach life-in-death",
+	})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+
+	// No change to the application or unit settings.
+	gotSettings, err := apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"king-gizzard": "hell",
+	})
+
+	appSettings, err := s.stateRelation.ApplicationSettings(s.wordpressApplication)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appSettings, gc.DeepEquals, map[string]interface{}{
+		"black-midi": "of schlagenheim",
+	})
 }
 
 // fakeToken implements leadership.Token.
