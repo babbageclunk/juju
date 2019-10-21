@@ -74,6 +74,10 @@ const (
 	// singularControllerNamespace is the name of the lease.Store namespace
 	// used by the singular manager
 	singularControllerNamespace = "singular-controller"
+
+	// implicitPeerRelationName is the name of the peer relation that
+	// will be automatically added to any newly-created application.
+	implicitPeerRelationName = "juju-peer"
 )
 
 type providerIdDoc struct {
@@ -1299,6 +1303,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	// Create the application addition operations.
 	peers := args.Charm.Meta().Peers
+	// If it's not already there, add the implicit peer relation.
+	peers, err = maybeAddImplicitPeer(peers)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// The doc defaults to CharmModifiedVersion = 0, which is correct, since it
 	// has, by definition, at its initial state.
@@ -1620,6 +1629,28 @@ func (st *State) processCAASModelApplicationArgs(args *AddApplicationArgs) error
 		"",
 		nil,
 	)
+}
+
+// maybeAddImplicitPeer adds the implicit peer relation if it's not
+// already found in the map.
+func maybeAddImplicitPeer(peers map[string]charm.Relation) (map[string]charm.Relation, error) {
+	if rel, ok := peers[implicitPeerRelationName]; ok {
+		if rel.Role != charm.RolePeer {
+			return nil, errors.Errorf("charm contains non-peer relation named %q", implicitPeerRelationName)
+		}
+		return peers, nil
+	}
+	updated := make(map[string]charm.Relation, len(peers)+1)
+	for name, rel := range peers {
+		updated[name] = rel
+	}
+	updated[implicitPeerRelationName] = charm.Relation{
+		Name:      implicitPeerRelationName,
+		Role:      charm.RolePeer,
+		Interface: implicitPeerRelationName,
+		Scope:     charm.ScopeGlobal,
+	}
+	return updated, nil
 }
 
 // removeNils removes any keys with nil values from the given map.

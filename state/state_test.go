@@ -339,10 +339,11 @@ var _ = gc.Suite(&MultiModelStateSuite{})
 
 func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 	for i, test := range []struct {
-		about        string
-		getWatcher   func(*state.State) interface{}
-		setUpState   func(*state.State) (assertChanges bool)
-		triggerEvent func(*state.State)
+		about          string
+		getWatcher     func(*state.State) interface{}
+		initialStrings []string
+		setUpState     func(*state.State) (assertChanges bool)
+		triggerEvent   func(*state.State)
 	}{
 		{
 			about: "machines",
@@ -438,6 +439,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				wordpress := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wordpressCharm})
 				return wordpress.WatchRelations()
 			},
+			initialStrings: []string{"wordpress:juju-peer"},
 			setUpState: func(st *state.State) bool {
 				f := factory.NewFactory(st, s.StatePool)
 				mysqlCharm := f.MakeCharm(c, &factory.CharmParams{Name: "mysql"})
@@ -705,7 +707,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 					wc = statetesting.NewStringsWatcherC(c, st, w)
 					swc := wc.(statetesting.StringsWatcherC)
 					// consume initial event
-					swc.AssertChange()
+					swc.AssertChange(test.initialStrings...)
 					swc.AssertNoChange()
 				case statetesting.NotifyWatcher:
 					wc = statetesting.NewNotifyWatcherC(c, st, w)
@@ -1490,10 +1492,19 @@ func (s *StateSuite) TestAllRelations(c *gc.C) {
 
 	relations, _ := s.State.AllRelations()
 
-	c.Assert(len(relations), gc.Equals, numRelations)
-	for i, relation := range relations {
-		c.Assert(relation.Id(), gc.Equals, i)
-		c.Assert(relation, gc.Matches, fmt.Sprintf("wordpress%d:.+ mysql:.+", i))
+	c.Assert(len(relations), gc.Equals, 1+(2*numRelations))
+	c.Assert(relations[0].Id(), gc.Equals, 0)
+	c.Assert(relations[0], gc.Matches, "mysql:juju-peer")
+
+	for i, relation := range relations[1:] {
+		suffix := i / 2
+		c.Assert(relation.Id(), gc.Equals, i+1)
+		c.Logf("%d", i)
+		if i%2 == 0 {
+			c.Assert(relation, gc.Matches, fmt.Sprintf("wordpress%d:juju-peer", suffix))
+		} else {
+			c.Assert(relation, gc.Matches, fmt.Sprintf("wordpress%d:.+ mysql:.+", suffix))
+		}
 	}
 }
 

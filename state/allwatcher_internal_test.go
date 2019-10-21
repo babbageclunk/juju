@@ -168,6 +168,24 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Since:   &now,
 		},
 	})
+
+	add(&multiwatcher.RelationInfo{
+		ModelUUID: modelUUID,
+		Key:       "wordpress:juju-peer",
+		Id:        0,
+		Endpoints: []multiwatcher.Endpoint{{
+			ApplicationName: "wordpress",
+			Relation: multiwatcher.CharmRelation{
+				Name:      "juju-peer",
+				Role:      "peer",
+				Interface: "juju-peer",
+				Optional:  false,
+				Limit:     0,
+				Scope:     "global",
+			},
+		}},
+	})
+
 	pairs := map[string]string{"x": "12", "y": "99"}
 	err = model.SetAnnotations(wordpress, pairs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -204,6 +222,23 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		ModelUUID: modelUUID,
 		CharmURL:  applicationCharmURL(logging).String(),
 		Life:      multiwatcher.Life("alive"),
+	})
+
+	add(&multiwatcher.RelationInfo{
+		ModelUUID: modelUUID,
+		Key:       "logging:juju-peer",
+		Id:        1,
+		Endpoints: []multiwatcher.Endpoint{{
+			ApplicationName: "logging",
+			Relation: multiwatcher.CharmRelation{
+				Name:      "juju-peer",
+				Role:      "peer",
+				Interface: "juju-peer",
+				Optional:  false,
+				Limit:     0,
+				Scope:     "global",
+			},
+		}},
 	})
 
 	eps, err := st.InferEndpoints("logging", "wordpress")
@@ -360,6 +395,23 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Data:    map[string]interface{}{},
 			Since:   &now,
 		},
+	})
+
+	add(&multiwatcher.RelationInfo{
+		ModelUUID: modelUUID,
+		Key:       "mysql:juju-peer",
+		Id:        3,
+		Endpoints: []multiwatcher.Endpoint{{
+			ApplicationName: "mysql",
+			Relation: multiwatcher.CharmRelation{
+				Name:      "juju-peer",
+				Role:      "peer",
+				Interface: "juju-peer",
+				Optional:  false,
+				Limit:     0,
+				Scope:     "global",
+			},
+		}},
 	})
 
 	add(&multiwatcher.CharmInfo{
@@ -2603,6 +2655,7 @@ func testChangeRelations(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C
 					&multiwatcher.RelationInfo{
 						ModelUUID: st.ModelUUID(),
 						Key:       "logging:logging-directory wordpress:logging-dir",
+						Id:        2,
 						Endpoints: []multiwatcher.Endpoint{
 							{ApplicationName: "logging", Relation: multiwatcher.CharmRelation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
 							{ApplicationName: "wordpress", Relation: multiwatcher.CharmRelation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
