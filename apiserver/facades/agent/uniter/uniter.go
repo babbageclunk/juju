@@ -1709,15 +1709,11 @@ func (u *UniterAPI) updateApplicationSettings(rel *state.Relation, unit *state.U
 		return nil
 	}
 	token := u.leadershipChecker.LeadershipCheck(unit.ApplicationName(), unit.Name())
-	application, err := unit.Application()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	settingsMap := make(map[string]interface{}, len(settings))
 	for k, v := range settings {
 		settingsMap[k] = v
 	}
-	err = rel.UpdateApplicationSettings(application, token, settingsMap)
+	err := rel.UpdateApplicationSettings(unit.ApplicationName(), token, settingsMap)
 	if leadership.IsNotLeaderError(err) {
 		return common.ErrPerm
 	}
