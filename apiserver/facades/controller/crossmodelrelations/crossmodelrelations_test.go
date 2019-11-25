@@ -561,7 +561,7 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *
 	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
 			{
-				Life:             params.Alive,
+				Life:             life.Alive,
 				ApplicationToken: "token-db2",
 				RelationToken:    "token-db2:db django:db",
 				Settings: map[string]interface{}{
@@ -603,5 +603,64 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 }
 
 func (s *crossmodelRelationsSuite) TestWatchRelationUnitsOnV1(c *gc.C) {
-	c.Fatalf("writeme")
+	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
+	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
+	s.st.applications["django"] = &mockApplication{}
+	s.st.remoteEntities[names.NewApplicationTag("django")] = "token-django"
+	rel := newMockRelation(1)
+	ru1 := newMockRelationUnit()
+	ru2 := newMockRelationUnit()
+	rel.endpoints = append(rel.endpoints,
+		state.Endpoint{ApplicationName: "db2"},
+		state.Endpoint{ApplicationName: "django"},
+	)
+	rel.units["django/1"] = ru1
+	rel.units["django/2"] = ru2
+
+	w := &mockUnitsWatcher{
+		changes: make(chan params.RelationUnitsChange, 1),
+	}
+	w.changes <- params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"django/1": params.UnitSettings{Version: 100},
+		},
+	}
+	rel.watchers["django"] = w
+
+	s.st.relations["db2:db django:db"] = rel
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerUUID:       "hosted-db2-uuid",
+		sourcemodelUUID: "source-model-uuid",
+		relationKey:     "db2:db django:db",
+		relationId:      1,
+	}
+	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	mac, err := s.bakery.NewMacaroon(
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+			checkers.DeclaredCaveat("username", "mary"),
+		})
+
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiV1 := &crossmodelrelations.CrossModelRelationsAPIv1{s.api}
+
+	result, err := apiV1.WatchRelationUnits(params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{{
+			Token:     "token-db2:db django:db",
+			Macaroons: macaroon.Slice{mac},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
+		Results: []params.RelationUnitsWatchResult{{
+			RelationUnitsWatcherId: "1",
+			Changes: params.RelationUnitsChange{
+				Changed: map[string]params.UnitSettings{
+					"django/1": params.UnitSettings{Version: 100},
+				},
+			},
+		}},
+	})
 }
