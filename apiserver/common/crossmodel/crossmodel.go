@@ -233,6 +233,7 @@ func WatchRelationUnits(backend Backend, tag names.RelationTag) (common.Relation
 	return wrapped, nil
 }
 
+// TODO(babbageclunk): remove once names.UnitNumber lands.
 func unitNum(unitName string) (int, error) {
 	parts := strings.Split(unitName, "/")
 	if len(parts) < 2 {
